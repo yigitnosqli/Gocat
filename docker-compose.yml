@@ -1,0 +1,310 @@
+# 🐳 GoCat Docker Compose Configuration
+# Provides multiple service configurations for different use cases
+
+version: '1.0'
+
+services:
+  # 🚀 Main GoCat service
+  gocat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        VERSION: ${VERSION:-dev}
+        BUILD_TIME: ${BUILD_TIME}
+        GIT_COMMIT: ${GIT_COMMIT}
+    image: gocat:latest
+    container_name: gocat-main
+    restart: unless-stopped
+    networks:
+      - gocat-network
+    ports:
+      - "8080:8080"
+      - "9999:9999"
+    environment:
+      - GOCAT_LOG_LEVEL=${LOG_LEVEL:-info}
+      - GOCAT_COLOR=${COLOR:-auto}
+    volumes:
+      - ./logs:/var/log/gocat:rw
+    healthcheck:
+      test: ["/usr/local/bin/gocat", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gocat.rule=Host(`gocat.localhost`)"
+      - "traefik.http.services.gocat.loadbalancer.server.port=8080"
+
+  # 🔧 Development service with hot reload
+  gocat-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    image: gocat:dev
+    container_name: gocat-dev
+    restart: "no"
+    networks:
+      - gocat-network
+    ports:
+      - "8081:8080"
+      - "9998:9999"
+    environment:
+      - GOCAT_LOG_LEVEL=debug
+      - GOCAT_COLOR=always
+      - GO_ENV=development
+    volumes:
+      - .:/app:rw
+      - go-mod-cache:/go/pkg/mod
+    working_dir: /app
+    command: ["/app/gocat-debug", "--help"]
+    profiles:
+      - dev
+
+  # 🧪 Testing service
+  gocat-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: testing
+    image: gocat:test
+    container_name: gocat-test
+    networks:
+      - gocat-network
+    environment:
+      - GO_ENV=test
+      - GOCAT_LOG_LEVEL=debug
+    volumes:
+      - .:/app:ro
+      - test-results:/app/test-results:rw
+    command: ["go", "test", "-v", "-coverprofile=test-results/coverage.out", "./..."]
+    profiles:
+      - test
+
+  # 📊 Monitoring with Prometheus metrics (future feature)
+  gocat-metrics:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: gocat:metrics
+    container_name: gocat-metrics
+    restart: unless-stopped
+    networks:
+      - gocat-network
+      - monitoring
+    ports:
+      - "8082:8080"
+      - "2112:2112"  # Prometheus metrics port
+    environment:
+      - GOCAT_LOG_LEVEL=info
+      - GOCAT_METRICS_ENABLED=true
+      - GOCAT_METRICS_PORT=2112
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=2112"
+      - "prometheus.io/path=/metrics"
+    profiles:
+      - monitoring
+
+  # 🔄 Load balancer setup (multiple instances)
+  gocat-lb1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: gocat:lb
+    container_name: gocat-lb1
+    restart: unless-stopped
+    networks:
+      - gocat-network
+    ports:
+      - "8083:8080"
+    environment:
+      - GOCAT_LOG_LEVEL=info
+      - GOCAT_INSTANCE_ID=lb1
+    profiles:
+      - loadbalancer
+
+  gocat-lb2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: gocat:lb
+    container_name: gocat-lb2
+    restart: unless-stopped
+    networks:
+      - gocat-network
+    ports:
+      - "8084:8080"
+    environment:
+      - GOCAT_LOG_LEVEL=info
+      - GOCAT_INSTANCE_ID=lb2
+    profiles:
+      - loadbalancer
+
+  # 🌐 Nginx load balancer
+  nginx-lb:
+    image: nginx:alpine
+    container_name: gocat-nginx-lb
+    restart: unless-stopped
+    networks:
+      - gocat-network
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - gocat-lb1
+      - gocat-lb2
+    profiles:
+      - loadbalancer
+
+  # 📈 Prometheus monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: gocat-prometheus
+    restart: unless-stopped
+    networks:
+      - monitoring
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    profiles:
+      - monitoring
+
+  # 📊 Grafana dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: gocat-grafana
+    restart: unless-stopped
+    networks:
+      - monitoring
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+
+  # 🗄️ Redis for session storage (future feature)
+  redis:
+    image: redis:alpine
+    container_name: gocat-redis
+    restart: unless-stopped
+    networks:
+      - gocat-network
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    profiles:
+      - cache
+
+  # 🐘 PostgreSQL for connection logging (future feature)
+  postgres:
+    image: postgres:15-alpine
+    container_name: gocat-postgres
+    restart: unless-stopped
+    networks:
+      - gocat-network
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-gocat}
+      - POSTGRES_USER=${POSTGRES_USER:-gocat}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-gocat123}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    profiles:
+      - database
+
+# 🌐 Networks
+networks:
+  gocat-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  monitoring:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+# 💾 Volumes
+volumes:
+  go-mod-cache:
+    driver: local
+  test-results:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  redis-data:
+    driver: local
+  postgres-data:
+    driver: local
+
+# 🔧 Extension fields for reusability
+x-common-variables: &common-variables
+  GOCAT_LOG_LEVEL: ${LOG_LEVEL:-info}
+  GOCAT_COLOR: ${COLOR:-auto}
+  TZ: ${TIMEZONE:-UTC}
+
+x-common-logging: &common-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# 📝 Usage Examples:
+# 
+# Basic usage:
+#   docker-compose up gocat
+# 
+# Development mode:
+#   docker-compose --profile dev up gocat-dev
+# 
+# Testing:
+#   docker-compose --profile test up gocat-test
+# 
+# Load balancer setup:
+#   docker-compose --profile loadbalancer up
+# 
+# Full monitoring stack:
+#   docker-compose --profile monitoring up
+# 
+# Everything:
+#   docker-compose --profile dev --profile test --profile monitoring --profile loadbalancer up
+# 
+# Build and run:
+#   docker-compose build && docker-compose up
+# 
+# Clean up:
+#   docker-compose down -v --remove-orphans
