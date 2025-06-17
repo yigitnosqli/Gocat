@@ -22,7 +22,7 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 PACKAGE_NAME="gocat"
 VERSION="${1:-1.0.0}"
 ARCH="${2:-amd64}"
-MAINTAINER="Ibrahim <ibrahim@example.com>"
+MAINTAINER="ibrahimsql ibrahimsql@proton.me"
 DESCRIPTION="Modern netcat alternative written in Go"
 HOMEPAGE="https://github.com/ibrahmsql/gocat"
 
@@ -170,7 +170,7 @@ Upstream-Contact: $MAINTAINER
 Source: $HOMEPAGE
 
 Files: *
-Copyright: $(date +%Y) Ibrahim
+Copyright: $(date +%Y) ibrahimsql
 License: MIT
 
 License: MIT
@@ -241,7 +241,7 @@ Start interactive listener:
 .BR netcat (1),
 .BR socat (1)
 .SH AUTHOR
-Written by Ibrahim.
+Written by ibrahimsql.
 .SH REPORTING BUGS
 Report bugs to: https://github.com/ibrahmsql/gocat/issues
 EOF
