@@ -5,7 +5,6 @@
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go)](https://golang.org)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/ibrahmsql/gocat?style=for-the-badge)](https://github.com/ibrahmsql/gocat/releases)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/ibrahmsql/gocat/ci.yml?style=for-the-badge)](https://github.com/ibrahmsql/gocat/actions)
 [![Coverage](https://img.shields.io/codecov/c/github/ibrahmsql/gocat?style=for-the-badge)](https://codecov.io/gh/ibrahmsql/gocat)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ibrahmsql/gocat?style=for-the-badge)](https://goreportcard.com/report/github.com/ibrahmsql/gocat)
 
