@@ -495,7 +495,7 @@ Have an idea? [Request a feature](https://github.com/ibrahmsql/gocat/issues/new?
 
 ### 🚨 Reporting Security Issues
 
-Please report security vulnerabilities to [security@gocat.dev](mailto:security@gocat.dev). Do not open public issues for security problems.
+Please report security vulnerabilities to [security@gocat.dev](mailto:ibrahimsql@proton.me). Do not open public issues for security problems.
 
 ---
 
@@ -519,7 +519,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - 📖 **Documentation**: [docs.gocat.dev](https://docs.gocat.dev)
 - 💬 **Discord**: [Join our community](https://discord.gg/gocat)
 - 🐛 **Issues**: [GitHub Issues](https://github.com/ibrahmsql/gocat/issues)
-- 📧 **Email**: [support@gocat.dev](mailto:support@gocat.dev)
+- 📧 **Email**: [support@gocat.dev](mailto:ibrahimsql@proton.me)
 - 🐦 **Twitter**: [@GoCatTool](https://twitter.com/GoCatTool)
 
 ---
