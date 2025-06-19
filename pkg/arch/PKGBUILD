@@ -16,14 +16,14 @@ optdepends=(
 makdepends=('go' 'git')
 conflicts=('netcat' 'openbsd-netcat')
 provides=('netcat')
-source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-sha256sums=('SKIP')  # Update with actual checksum
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v1.tar.gz")
+sha256sums=('c05fe405a4603073b12046557a2f4fb861b47cdaf02aa8c0305a73d623e44ae4')
 
 # Color output for build process
-BLUE='\033[0;34m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+readonly BLUE='\033[0;34m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly NC='\033[0m'
 
 msg_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -39,7 +39,17 @@ msg_warning() {
 
 prepare() {
     msg_info "Preparing GoCat build environment..."
-    cd "$pkgname-$pkgver"
+    
+    # Check if we have the extracted directory
+    if [ -d "gocat-$pkgver" ]; then
+        cd "gocat-$pkgver"
+    elif [ -d "$pkgname-$pkgver" ]; then
+        cd "$pkgname-$pkgver"
+    else
+        # If neither exists, create a symlink to current directory
+        ln -sf "$srcdir" "$pkgname-$pkgver"
+        cd "$pkgname-$pkgver"
+    fi
     
     # Initialize Go modules if needed
     if [ ! -f go.mod ]; then
@@ -184,7 +194,7 @@ Written by Ibrahim.
 .SH REPORTING BUGS
 Report bugs to: https://github.com/ibrahmsql/gocat/issues
 .SH COPYRIGHT
-Copyright © 2025 ibrahimsql. License MIT.
+Copyright © 2024 Ibrahim. License MIT.
 EOF
     
     # Install license
