@@ -20,10 +20,12 @@ source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v1.tar.gz")
 sha256sums=('c05fe405a4603073b12046557a2f4fb861b47cdaf02aa8c0305a73d623e44ae4')
 
 # Color output for build process
-readonly BLUE='\033[0;34m'
-readonly GREEN='\033[0;32m'
-readonly YELLOW='\033[1;33m'
-readonly NC='\033[0m'
+if [[ -z "${BLUE:-}" ]]; then
+    readonly BLUE='\033[0;34m'
+    readonly GREEN='\033[0;32m'
+    readonly YELLOW='\033[1;33m'
+    readonly NC='\033[0m'
+fi
 
 msg_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -40,15 +42,28 @@ msg_warning() {
 prepare() {
     msg_info "Preparing GoCat build environment..."
     
-    # Check if we have the extracted directory
-    if [ -d "gocat-$pkgver" ]; then
-        cd "gocat-$pkgver"
+    # The extracted directory should be gocat-1 (from v1.tar.gz)
+    if [ -d "gocat-1" ]; then
+        cd "gocat-1"
     elif [ -d "$pkgname-$pkgver" ]; then
         cd "$pkgname-$pkgver"
     else
-        # If neither exists, create a symlink to current directory
-        ln -sf "$srcdir" "$pkgname-$pkgver"
-        cd "$pkgname-$pkgver"
+        # List available directories for debugging
+        msg_warning "Available directories: $(ls -la)"
+        # Try to find any gocat directory
+        local gocat_dir=$(find . -maxdepth 1 -type d -name "gocat*" | head -1)
+        if [ -n "$gocat_dir" ]; then
+            cd "$gocat_dir"
+            msg_info "Using directory: $gocat_dir"
+        else
+            msg_warning "No gocat directory found, staying in current directory"
+        fi
+    fi
+    
+    # Verify we have Go source files
+    if [ ! -f main.go ] && [ ! -f "*.go" ]; then
+        msg_warning "No Go files found in current directory: $(pwd)"
+        msg_info "Directory contents: $(ls -la)"
     fi
     
     # Initialize Go modules if needed
