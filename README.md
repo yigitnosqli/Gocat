@@ -6,7 +6,6 @@
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/ibrahmsql/gocat?style=for-the-badge)](https://github.com/ibrahmsql/gocat/releases)
 [![Coverage](https://img.shields.io/codecov/c/github/ibrahmsql/gocat?style=for-the-badge)](https://codecov.io/gh/ibrahmsql/gocat)
-[![Go Report Card](https://goreportcard.com/badge/github.com/ibrahmsql/gocat?style=for-the-badge)](https://goreportcard.com/report/github.com/ibrahmsql/gocat)
 
 ```
   ██████╗  ██████╗  ██████╗ █████╗ ████████╗
