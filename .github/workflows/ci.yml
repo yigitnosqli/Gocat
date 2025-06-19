@@ -1,0 +1,284 @@
+name: 🚀 Continuous Integration
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+  pull_request:
+    branches: [ main, develop ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+  workflow_dispatch:
+
+env:
+  GO_VERSION: '1.21'
+  GOPROXY: https://proxy.golang.org,direct
+  GOSUMDB: sum.golang.org
+
+jobs:
+  # 🧪 Testing Job
+  test:
+    name: 🧪 Test Suite
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.20', '1.21']
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: 🐹 Setup Go ${{ matrix.go-version }}
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ matrix.go-version }}
+        cache: true
+    
+    - name: 📦 Download Dependencies
+      run: |
+        go mod download
+        go mod verify
+    
+    - name: 🔍 Run Go Vet
+      run: go vet ./...
+    
+    - name: 🧹 Run Go Fmt Check
+      run: |
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          echo "❌ Code is not formatted properly:"
+          gofmt -s -l .
+          exit 1
+        fi
+        echo "✅ Code is properly formatted"
+      shell: bash
+    
+    - name: 🧪 Run Tests
+      run: |
+        echo "🧪 Running tests with coverage..."
+        go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+    
+    - name: 📊 Upload Coverage
+      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.21'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.out
+        flags: unittests
+        name: codecov-umbrella
+    
+    - name: 🏗️ Build Binary
+      run: |
+        echo "🏗️ Building gocat binary..."
+        go build -v -o gocat .
+    
+    - name: ✅ Test Binary
+      run: |
+        echo "✅ Testing binary functionality..."
+        ./gocat --help
+        ./gocat --version || ./gocat -v || echo "Version flag not implemented yet"
+      shell: bash
+
+  # 🔒 Security Scan
+  security:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+    
+    - name: 🐹 Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+    
+    - name: 🔍 Run Gosec Security Scanner
+      uses: securecodewarrior/github-action-gosec@master
+      with:
+        args: '-fmt sarif -out gosec.sarif ./...'
+    
+    - name: 📤 Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: gosec.sarif
+
+  # 📏 Code Quality
+  quality:
+    name: 📏 Code Quality
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: 🐹 Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+    
+    - name: 🔧 Install golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        args: --timeout=5m
+    
+    - name: 📊 SonarCloud Scan
+      if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # 🏗️ Build Matrix
+  build:
+    name: 🏗️ Build (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    needs: [test, security, quality]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            artifact: gocat-linux-amd64
+          - goos: linux
+            goarch: arm64
+            artifact: gocat-linux-arm64
+          - goos: darwin
+            goarch: amd64
+            artifact: gocat-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            artifact: gocat-darwin-arm64
+          - goos: windows
+            goarch: amd64
+            artifact: gocat-windows-amd64.exe
+          - goos: freebsd
+            goarch: amd64
+            artifact: gocat-freebsd-amd64
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+    
+    - name: 🐹 Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+    
+    - name: 🏗️ Build Binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
+      run: |
+        echo "🏗️ Building for ${{ matrix.goos }}/${{ matrix.goarch }}..."
+        
+        # Build flags
+        BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        GIT_COMMIT=$(git rev-parse --short HEAD)
+        VERSION=${GITHUB_REF#refs/tags/}
+        
+        LDFLAGS="
+          -s -w
+          -X main.version=${VERSION}
+          -X main.buildTime=${BUILD_TIME}
+          -X main.gitCommit=${GIT_COMMIT}
+        "
+        
+        go build \
+          -trimpath \
+          -ldflags="${LDFLAGS}" \
+          -o ${{ matrix.artifact }} \
+          .
+        
+        echo "✅ Build completed: ${{ matrix.artifact }}"
+        ls -la ${{ matrix.artifact }}
+    
+    - name: 📤 Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.artifact }}
+        path: ${{ matrix.artifact }}
+        retention-days: 30
+
+  # 📦 Package Creation
+  package:
+    name: 📦 Create Packages
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+    
+    - name: 📥 Download Linux AMD64 Artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: gocat-linux-amd64
+        path: ./
+    
+    - name: 🔧 Setup Package Tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y dpkg-dev rpm
+    
+    - name: 📦 Create Debian Package
+      run: |
+        echo "📦 Creating Debian package..."
+        chmod +x gocat-linux-amd64
+        mv gocat-linux-amd64 gocat
+        chmod +x pkg/debian/build-deb.sh
+        cd pkg/debian
+        ./build-deb.sh 1.0.0 amd64
+    
+    - name: 📤 Upload Debian Package
+      uses: actions/upload-artifact@v3
+      with:
+        name: debian-package
+        path: pkg/debian/*.deb
+        retention-days: 30
+
+  # 🎯 Deployment Status
+  status:
+    name: 🎯 CI Status
+    runs-on: ubuntu-latest
+    needs: [test, security, quality, build, package]
+    if: always()
+    
+    steps:
+    - name: 📊 Report Status
+      run: |
+        echo "🎯 CI Pipeline Status Report"
+        echo "========================="
+        echo "✅ Tests: ${{ needs.test.result }}"
+        echo "🔒 Security: ${{ needs.security.result }}"
+        echo "📏 Quality: ${{ needs.quality.result }}"
+        echo "🏗️ Build: ${{ needs.build.result }}"
+        echo "📦 Package: ${{ needs.package.result }}"
+        
+        if [[ "${{ needs.test.result }}" == "success" && 
+              "${{ needs.security.result }}" == "success" && 
+              "${{ needs.quality.result }}" == "success" ]]; then
+          echo "🎉 All checks passed!"
+          exit 0
+        else
+          echo "❌ Some checks failed!"
+          exit 1
+        fi

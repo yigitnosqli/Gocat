@@ -1,0 +1,214 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for GoCat
+title: "✨ [Feature]: "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # ✨ Feature Request
+        
+        Thank you for suggesting a new feature! Your ideas help make GoCat better for everyone.
+        
+        **Before submitting:**
+        - 🔍 Search existing issues to see if this feature has been requested
+        - 💭 Consider if this fits with GoCat's goals as a netcat alternative
+        - 📖 Check our [roadmap](https://github.com/ibrahmsql/gocat/projects) for planned features
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: 📂 Feature Category
+      description: What type of feature is this?
+      options:
+        - "🌐 Network/Protocol Support"
+        - "🎯 Connection Modes"
+        - "🎨 User Interface/Experience"
+        - "🔧 Configuration/Options"
+        - "📊 Logging/Monitoring"
+        - "🔒 Security/Authentication"
+        - "📦 Packaging/Distribution"
+        - "🚀 Performance"
+        - "🔌 Integration/API"
+        - "📱 Platform Support"
+        - "🛠️ Developer Tools"
+        - "📚 Documentation"
+        - "🎭 Other"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 🚨 Priority
+      description: How important is this feature to you?
+      options:
+        - "🔥 Critical - Blocking my use case"
+        - "🚨 High - Would significantly improve my workflow"
+        - "⚠️ Medium - Nice to have"
+        - "📝 Low - Minor improvement"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 🎯 Problem Statement
+      description: What problem does this feature solve? What's your use case?
+      placeholder: |
+        Describe the problem you're trying to solve or the use case you have.
+        
+        Example:
+        "I often need to transfer files over the network, but GoCat doesn't currently support file transfer modes like netcat's -N flag..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 💡 Proposed Solution
+      description: Describe the feature you'd like to see implemented
+      placeholder: |
+        Describe your ideal solution in detail.
+        
+        Example:
+        "Add a --file-transfer or -f flag that optimizes the connection for file transfers, automatically closing the connection when EOF is reached..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 🔄 Alternative Solutions
+      description: Have you considered any alternative approaches?
+      placeholder: |
+        Describe any alternative solutions or workarounds you've considered.
+        
+        Example:
+        "Currently I use 'nc -N' for this, but I'd prefer to use GoCat for consistency..."
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: 📋 Usage Examples
+      description: Show how this feature would be used
+      placeholder: |
+        Provide concrete examples of how this feature would be used.
+        
+        ```bash
+        # Example command
+        gocat listen --file-transfer 8080
+        
+        # Or with short flag
+        gocat connect -f example.com 8080 < largefile.bin
+        ```
+      render: shell
+
+  - type: textarea
+    id: benefits
+    attributes:
+      label: 🎉 Benefits
+      description: What are the benefits of implementing this feature?
+      placeholder: |
+        - Improved user experience for file transfers
+        - Better compatibility with existing netcat workflows
+        - Reduced need for external tools
+        - Enhanced performance for large data transfers
+
+  - type: dropdown
+    id: compatibility
+    attributes:
+      label: 🔗 Compatibility
+      description: Should this feature maintain compatibility with netcat?
+      options:
+        - "✅ Yes - Should be compatible with netcat behavior"
+        - "🆕 No - This is a GoCat-specific enhancement"
+        - "🤔 Partial - Some compatibility considerations"
+        - "❓ Not sure - Need guidance"
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: 🛠️ Implementation Ideas
+      description: Do you have any ideas about how this could be implemented?
+      placeholder: |
+        If you have technical knowledge, share your implementation ideas.
+        This is optional but can help speed up development.
+        
+        Example:
+        "This could be implemented by adding a new flag to the CLI parser and modifying the connection handling logic to..."
+
+  - type: dropdown
+    id: platforms
+    attributes:
+      label: 🖥️ Target Platforms
+      description: Which platforms should support this feature?
+      multiple: true
+      options:
+        - "🐧 Linux"
+        - "🍎 macOS"
+        - "🪟 Windows"
+        - "👹 FreeBSD"
+        - "🐳 Docker/Containers"
+        - "☁️ All platforms"
+
+  - type: textarea
+    id: resources
+    attributes:
+      label: 📚 Additional Resources
+      description: Any relevant links, documentation, or references?
+      placeholder: |
+        - Link to netcat documentation: https://...
+        - Similar feature in other tools: https://...
+        - RFC or specification: https://...
+        - Related issues: #123
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: 🤝 Contribution
+      description: Are you willing to help implement this feature?
+      options:
+        - "✅ Yes - I can implement this feature"
+        - "🧪 Yes - I can help with testing"
+        - "📝 Yes - I can help with documentation"
+        - "💭 Yes - I can provide feedback and guidance"
+        - "❌ No - I can only provide the idea"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: ✅ Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues for similar feature requests
+          required: true
+        - label: This feature aligns with GoCat's goals as a netcat alternative
+          required: true
+        - label: I have provided a clear problem statement and solution
+          required: true
+        - label: I understand this is a feature request, not a bug report
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        
+        **Thank you for your feature request! 🚀**
+        
+        Our team will review this suggestion and consider it for future releases.
+        
+        **What happens next?**
+        1. 🏷️ We'll add appropriate labels and assign it to a milestone
+        2. 💬 Community discussion and feedback
+        3. 🎯 Technical feasibility assessment
+        4. 📋 Addition to our roadmap (if approved)
+        5. 🛠️ Implementation and testing
+        
+        You can track the progress by watching this repository and participating in discussions!
