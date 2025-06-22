@@ -22,7 +22,7 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 PACKAGE_NAME="gocat"
 VERSION="${1:-1.0.0}"
 ARCH="${2:-amd64}"
-MAINTAINER="ibrahimsql ibrahimsql@proton.me"
+MAINTAINER="Ibrahim <ibrahim@example.com>"
 DESCRIPTION="Modern netcat alternative written in Go"
 HOMEPAGE="https://github.com/ibrahmsql/gocat"
 
@@ -128,6 +128,12 @@ copy_files() {
     if [ -f "../../gocat" ]; then
         cp "../../gocat" "$PACKAGE_DIR/usr/local/bin/"
         chmod 755 "$PACKAGE_DIR/usr/local/bin/gocat"
+    elif [ -f "../gocat" ]; then
+        cp "../gocat" "$PACKAGE_DIR/usr/local/bin/"
+        chmod 755 "$PACKAGE_DIR/usr/local/bin/gocat"
+    elif [ -f "gocat" ]; then
+        cp "gocat" "$PACKAGE_DIR/usr/local/bin/"
+        chmod 755 "$PACKAGE_DIR/usr/local/bin/gocat"
     else
         log_error "Binary not found. Please build gocat first."
         exit 1
@@ -170,7 +176,7 @@ Upstream-Contact: $MAINTAINER
 Source: $HOMEPAGE
 
 Files: *
-Copyright: $(date +%Y) ibrahimsql
+Copyright: $(date +%Y) Ibrahim
 License: MIT
 
 License: MIT
@@ -241,7 +247,7 @@ Start interactive listener:
 .BR netcat (1),
 .BR socat (1)
 .SH AUTHOR
-Written by ibrahimsql.
+Written by Ibrahim.
 .SH REPORTING BUGS
 Report bugs to: https://github.com/ibrahmsql/gocat/issues
 EOF

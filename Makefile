@@ -291,6 +291,47 @@ docker-compose-down: ## Stop services with docker-compose
 	docker-compose down
 	@echo "$(BOLD)$(GREEN)✅ Services stopped$(RESET)"
 
+# 📦 Package targets
+.PHONY: package
+package: build ## Create distribution packages
+	@echo "$(BOLD)$(BLUE)📦 Creating packages...$(RESET)"
+	./pkg/build-packages.sh $(shell echo $(VERSION) | sed 's/^v//')
+	@echo "$(BOLD)$(GREEN)✅ Packages created$(RESET)"
+
+.PHONY: homebrew
+homebrew: ## Test Homebrew formula
+	@echo "$(BOLD)$(BLUE)🍺 Testing Homebrew formula...$(RESET)"
+	@if [ -f "Formula/gocat.rb" ]; then \
+		brew install --build-from-source Formula/gocat.rb; \
+	else \
+		echo "$(RED)❌ Homebrew formula not found$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(BOLD)$(GREEN)✅ Homebrew formula tested$(RESET)"
+
+.PHONY: release
+release: ## Create a new release
+	@echo "$(BOLD)$(BLUE)🚀 Creating release...$(RESET)"
+	./scripts/create-release.sh
+	@echo "$(BOLD)$(GREEN)✅ Release created$(RESET)"
+
+.PHONY: package-rpm
+package-rpm: build ## Create RPM package
+	@echo "$(BOLD)$(BLUE)📦 Creating RPM package...$(RESET)"
+	./build-rpm.sh $(shell echo $(VERSION) | sed 's/^v//') noarch
+	@echo "$(BOLD)$(GREEN)✅ RPM package created$(RESET)"
+
+.PHONY: package-deb
+package-deb: build ## Create Debian package (requires dpkg-deb)
+	@echo "$(BOLD)$(BLUE)📦 Creating Debian package...$(RESET)"
+	@if command -v dpkg-deb >/dev/null 2>&1; then \
+		cd pkg/debian && ./build-deb.sh $(shell echo $(VERSION) | sed 's/^v//') amd64; \
+	else \
+		echo "$(RED)❌ dpkg-deb not found. Install dpkg-dev package.$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(BOLD)$(GREEN)✅ Debian package created$(RESET)"
+
 # 📋 Install targets
 .PHONY: install
 install: build ## Install binary to system

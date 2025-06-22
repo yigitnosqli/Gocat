@@ -7,9 +7,9 @@ import (
 
 func TestParseHostPort(t *testing.T) {
 	tests := []struct {
-		name        string
-		args        []string
-		defaultHost string
+		name         string
+		args         []string
+		defaultHost  string
 		expectedHost string
 		expectedPort string
 		expectError  bool
@@ -134,10 +134,10 @@ func TestValidateShell(t *testing.T) {
 
 func TestParseCommand(t *testing.T) {
 	tests := []struct {
-		name           string
-		command        string
-		expectedCmd    string
-		expectedArgs   []string
+		name         string
+		command      string
+		expectedCmd  string
+		expectedArgs []string
 	}{
 		{
 			name:         "simple command",

@@ -1,0 +1,35 @@
+gocat (2.0.0-1) unstable; urgency=medium
+
+  * Major version 2.0.0 release
+  * Enhanced performance and stability improvements
+  * Improved IPv6 support and connection handling
+  * Advanced SSL/TLS encryption capabilities
+  * Extended proxy support with authentication
+  * Enhanced command execution with security features
+  * Improved interactive mode with better UX
+  * Advanced port scanning with stealth options
+  * Better error handling and logging
+  * Cross-platform compatibility enhancements
+  * Updated documentation and man pages
+  * Bug fixes and security improvements
+
+ -- Ibrahim SQL <ibrahim@example.com>  $(date -R)
+
+gocat (1.0.0-1) unstable; urgency=low
+
+  * Initial Debian package release
+  * Modern netcat alternative written in Go
+  * TCP/UDP connection handling (client and server modes)
+  * Port scanning capabilities with range support
+  * Interactive and local interactive modes
+  * SSL/TLS support for secure connections
+  * Proxy support (SOCKS5, HTTP)
+  * Command execution capabilities
+  * IPv6 support with proper address formatting
+  * Signal handling and graceful shutdown
+  * Cross-platform compatibility
+  * Colored logging output
+  * Command history in interactive mode
+  * Comprehensive man page documentation
+
+ -- ibrahimsql <ibrahimsql@proton.me>

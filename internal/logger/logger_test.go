@@ -66,10 +66,10 @@ func TestLoggerLevels(t *testing.T) {
 func TestLoggerInfo(t *testing.T) {
 	// Test that Info method doesn't panic and works with formatting
 	logger := NewLogger(LevelInfo)
-	
+
 	// This should not panic
 	logger.Info("test message with %s", "formatting")
-	
+
 	// Test that the logger level allows info messages
 	if logger.level > LevelInfo {
 		t.Error("Info messages should be logged when level is info")
@@ -79,10 +79,10 @@ func TestLoggerInfo(t *testing.T) {
 func TestLoggerWarn(t *testing.T) {
 	// Test that Warn method doesn't panic and works with formatting
 	logger := NewLogger(LevelInfo)
-	
+
 	// This should not panic
 	logger.Warn("test warning with %d", 42)
-	
+
 	// Test that the logger level allows warn messages
 	if logger.level > LevelWarn {
 		t.Error("Warn messages should be logged when level is info")
@@ -92,10 +92,10 @@ func TestLoggerWarn(t *testing.T) {
 func TestLoggerError(t *testing.T) {
 	// Test that Error method doesn't panic and works with formatting
 	logger := NewLogger(LevelInfo)
-	
+
 	// This should not panic
 	logger.Error("test error: %v", "something went wrong")
-	
+
 	// Test that the logger level allows error messages
 	if logger.level > LevelError {
 		t.Error("Error messages should be logged when level is info")
@@ -106,7 +106,7 @@ func TestDefaultLoggerFunctions(t *testing.T) {
 	// Test SetLevel
 	originalLevel := defaultLogger.level
 	SetLevel(LevelError)
-	
+
 	// Check that the level was set correctly
 	if defaultLogger.level != LevelError {
 		t.Errorf("Expected default logger level to be %d, got %d", LevelError, defaultLogger.level)
@@ -119,7 +119,7 @@ func TestDefaultLoggerFunctions(t *testing.T) {
 
 	// Reset to original level
 	SetLevel(originalLevel)
-	
+
 	// Verify reset
 	if defaultLogger.level != originalLevel {
 		t.Errorf("Failed to reset default logger level to %d, got %d", originalLevel, defaultLogger.level)

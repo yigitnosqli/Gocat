@@ -183,7 +183,7 @@ package() {
     # Create and install man page
     mkdir -p "$pkgdir/usr/share/man/man1"
     cat > "$pkgdir/usr/share/man/man1/$pkgname.1" << 'EOF'
-.TH GOCAT 1 "January 2025" "gocat" "User Commands"
+.TH GOCAT 1 "January 2024" "gocat" "User Commands"
 .SH NAME
 gocat \- modern netcat alternative written in Go
 .SH SYNOPSIS
@@ -245,7 +245,7 @@ Written by Ibrahim.
 .SH REPORTING BUGS
 Report bugs to: https://github.com/ibrahmsql/gocat/issues
 .SH COPYRIGHT
-Copyright © 2025 ibrahimsql . License MIT.
+Copyright © 2024 Ibrahim. License MIT.
 EOF
     
     # Install license
