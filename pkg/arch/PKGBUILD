@@ -13,7 +13,7 @@ optdepends=(
     'bash-completion: for bash completion support'
     'zsh-completions: for zsh completion support'
 )
-makdepends=('go' 'git')
+makedepends=('go')
 conflicts=('netcat' 'openbsd-netcat')
 provides=('netcat')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v1.tar.gz")
@@ -77,7 +77,19 @@ prepare() {
 
 build() {
     msg_info "Building GoCat for $CARCH..."
-    cd "$pkgname-$pkgver"
+    
+    # Find the correct source directory
+    local srcdir="gocat-1"
+    if [ ! -d "$srcdir" ]; then
+        srcdir=$(find . -maxdepth 1 -type d -name "gocat-*" | head -1)
+        if [ -z "$srcdir" ]; then
+            msg_warning "No gocat source directory found!"
+            return 1
+        fi
+        srcdir=${srcdir#./}
+    fi
+    
+    cd "$srcdir"
     
     # Set Go build environment
     export CGO_ENABLED=0
@@ -119,7 +131,19 @@ build() {
 
 check() {
     msg_info "Running tests..."
-    cd "$pkgname-$pkgver"
+    
+    # Find the correct source directory
+    local srcdir="gocat-1"
+    if [ ! -d "$srcdir" ]; then
+        srcdir=$(find . -maxdepth 1 -type d -name "gocat-*" | head -1)
+        if [ -z "$srcdir" ]; then
+            msg_warning "No gocat source directory found!"
+            return 1
+        fi
+        srcdir=${srcdir#./}
+    fi
+    
+    cd "$srcdir"
     
     # Run Go tests
     go test -v ./...
@@ -133,7 +157,19 @@ check() {
 
 package() {
     msg_info "Packaging GoCat..."
-    cd "$pkgname-$pkgver"
+    
+    # Find the correct source directory
+    local srcdir="gocat-1"
+    if [ ! -d "$srcdir" ]; then
+        srcdir=$(find . -maxdepth 1 -type d -name "gocat-*" | head -1)
+        if [ -z "$srcdir" ]; then
+            msg_warning "No gocat source directory found!"
+            return 1
+        fi
+        srcdir=${srcdir#./}
+    fi
+    
+    cd "$srcdir"
     
     # Install binary
     install -Dm755 "$pkgname" "$pkgdir/usr/bin/$pkgname"
@@ -147,7 +183,7 @@ package() {
     # Create and install man page
     mkdir -p "$pkgdir/usr/share/man/man1"
     cat > "$pkgdir/usr/share/man/man1/$pkgname.1" << 'EOF'
-.TH GOCAT 1 "$(date +"%B %Y")" "gocat" "User Commands"
+.TH GOCAT 1 "January 2024" "gocat" "User Commands"
 .SH NAME
 gocat \- modern netcat alternative written in Go
 .SH SYNOPSIS
