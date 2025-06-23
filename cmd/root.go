@@ -10,7 +10,7 @@ var rootCmd = &cobra.Command{
 	Long: `Gocat is a netcat-like tool written in Go that provides network connectivity.
 It can be used for port scanning, file transfers, backdoors, port redirection,
 and many other networking tasks.`,
-	Version: "1.0.0",
+	Version: "2.0.1",
 }
 
 func Execute() error {
