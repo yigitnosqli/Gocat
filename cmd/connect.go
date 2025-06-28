@@ -5,12 +5,13 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/url"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/fatih/color"
@@ -100,11 +101,12 @@ func connect(host, port, shell string) error {
 	var conn net.Conn
 	var err error
 
-	// Retry logic
+	// Retry logic with exponential backoff
 	for attempt := 0; attempt <= retryCount; attempt++ {
 		if attempt > 0 {
-			logger.Info("Retrying connection", "attempt", attempt, "max", retryCount)
-			time.Sleep(time.Second * time.Duration(attempt))
+			backoff := time.Duration(attempt*attempt) * time.Second
+			logger.Info("Retrying connection (attempt %d/%d) in %v", attempt, retryCount+1, backoff)
+			time.Sleep(backoff)
 		}
 
 		conn, err = dialWithOptions(network, address)
@@ -115,19 +117,27 @@ func connect(host, port, shell string) error {
 		if attempt == retryCount {
 			return fmt.Errorf("failed to connect to %s after %d attempts: %v", address, retryCount+1, err)
 		}
+		logger.Warn("Connection attempt %d failed: %v", attempt+1, err)
 	}
 
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			logger.Error("Error closing connection: %v", err)
+		}
+	}()
 
 	// Configure keep-alive for TCP connections
 	if keepAlive && !useUDP {
 		if tcpConn, ok := conn.(*net.TCPConn); ok {
-			tcpConn.SetKeepAlive(true)
-			tcpConn.SetKeepAlivePeriod(30 * time.Second)
+			if err := tcpConn.SetKeepAlive(true); err != nil {
+				logger.Warn("Failed to enable keep-alive: %v", err)
+			} else {
+				tcpConn.SetKeepAlivePeriod(30 * time.Second)
+			}
 		}
 	}
 
-	color.Green("Connected to %s", address)
+	color.Green("✓ Connected to %s", address)
 
 	if runtime.GOOS == "windows" {
 		return connectWindows(conn, shell)
@@ -213,7 +223,7 @@ func dialWithTLS(network, address string, dialer *net.Dialer) (net.Conn, error) 
 
 	// Load CA certificate if provided
 	if caCertFile != "" {
-		caCert, err := ioutil.ReadFile(caCertFile)
+		caCert, err := os.ReadFile(caCertFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read CA certificate: %v", err)
 		}
@@ -228,6 +238,62 @@ func dialWithTLS(network, address string, dialer *net.Dialer) (net.Conn, error) 
 }
 
 func connectUnix(conn net.Conn, shell string) error {
+	// Get the file descriptor from the connection
+	var fd int
+	switch c := conn.(type) {
+	case *net.TCPConn:
+		file, err := c.File()
+		if err != nil {
+			return fmt.Errorf("failed to get file descriptor: %v", err)
+		}
+		defer file.Close()
+		fd = int(file.Fd())
+	case *net.UnixConn:
+		file, err := c.File()
+		if err != nil {
+			return fmt.Errorf("failed to get file descriptor: %v", err)
+		}
+		defer file.Close()
+		fd = int(file.Fd())
+	default:
+		// Fallback to pipe-based approach for other connection types
+		return connectUnixPipes(conn, shell)
+	}
+
+	// Duplicate file descriptor for stdin, stdout, stderr
+	if err := syscall.Dup2(fd, int(os.Stdin.Fd())); err != nil {
+		return fmt.Errorf("failed to dup stdin: %v", err)
+	}
+	if err := syscall.Dup2(fd, int(os.Stdout.Fd())); err != nil {
+		return fmt.Errorf("failed to dup stdout: %v", err)
+	}
+	if err := syscall.Dup2(fd, int(os.Stderr.Fd())); err != nil {
+		return fmt.Errorf("failed to dup stderr: %v", err)
+	}
+
+	// Create shell command
+	cmd := exec.Command(shell, "-i")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	// Start the shell
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start shell: %v", err)
+	}
+
+	// Wait for the shell to exit
+	if err := cmd.Wait(); err != nil {
+		logger.Warn("Shell exited with error: %v", err)
+	} else {
+		logger.Info("Shell exited normally")
+	}
+
+	return nil
+}
+
+// Fallback method using pipes for connection types that don't support File()
+func connectUnixPipes(conn net.Conn, shell string) error {
 	// Create shell command
 	cmd := exec.Command(shell, "-i")
 
@@ -245,7 +311,7 @@ func connectUnix(conn net.Conn, shell string) error {
 	if err := cmd.Wait(); err != nil {
 		logger.Warn("Shell exited with error: %v", err)
 	} else {
-		logger.Warn("Shell exited")
+		logger.Info("Shell exited normally")
 	}
 
 	return nil

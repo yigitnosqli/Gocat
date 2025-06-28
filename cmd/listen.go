@@ -136,7 +136,9 @@ func listen(host, port string) error {
 
 		go func(c net.Conn) {
 			defer func() {
-				c.Close()
+				if err := c.Close(); err != nil {
+					logger.Error("Error closing connection: %v", err)
+				}
 				<-connSemaphore // Release semaphore slot
 				wg.Done()
 			}()
@@ -203,8 +205,11 @@ func handleConnection(conn net.Conn) {
 	// Configure keep-alive for TCP connections
 	if listenKeepAlive && !listenUseUDP {
 		if tcpConn, ok := conn.(*net.TCPConn); ok {
-			tcpConn.SetKeepAlive(true)
-			tcpConn.SetKeepAlivePeriod(30 * time.Second)
+			if err := tcpConn.SetKeepAlive(true); err != nil {
+				logger.Warn("Failed to enable keep-alive: %v", err)
+			} else {
+				tcpConn.SetKeepAlivePeriod(30 * time.Second)
+			}
 		}
 	}
 

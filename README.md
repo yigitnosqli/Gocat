@@ -1,24 +1,20 @@
-# 🚀 GoCat - Modern Netcat Alternative
+# 🐱 GoCat
 
 <div align="center">
 
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go)](https://golang.org)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/ibrahmsql/gocat?style=for-the-badge)](https://github.com/ibrahmsql/gocat/releases)
-[![Coverage](https://img.shields.io/codecov/c/github/ibrahmsql/gocat?style=for-the-badge)](https://codecov.io/gh/ibrahmsql/gocat)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/ibrahmsql/gocat/ci.yml?style=for-the-badge)](https://github.com/ibrahmsql/gocat/actions)
 
-```
-  ██████╗  ██████╗  ██████╗ █████╗ ████████╗
- ██╔════╝ ██╔═══██╗██╔════╝██╔══██╗╚══██╔══╝
- ██║  ███╗██║   ██║██║     ███████║   ██║   
- ██║   ██║██║   ██║██║     ██╔══██║   ██║   
- ╚██████╔╝╚██████╔╝╚██████╗██║  ██║   ██║   
-  ╚═════╝  ╚═════╝  ╚═════╝╚═╝  ╚═╝   ╚═╝   
-```
+<div align="center">
+  <img src="https://github.com/ibrahmsql/gocat/assets/terminal-logo.png" alt="GoCat Logo" width="600" height="200">
+</div>
 
-**A modern, feature-rich netcat alternative written in Go**
+**A modern, feature-rich  netcat alternative written in Go**
 
-[🚀 Quick Start](#-quick-start) • [📖 Documentation](#-documentation) • [💾 Installation](#-installation) • [🎯 Features](#-features) • [🤝 Contributing](#-contributing)
+
+[🚀 Quick Start](#-quick-start) • [📖 Documentation](#-documentation) • [💾 Installation](#-installation) • [🎯 Features](#-features) • [🔧 Usage](#-usage) • [🤝 Contributing](#-contributing)
 
 </div>
 
@@ -26,27 +22,34 @@
 
 ## 🌟 Overview
 
-**GoCat** is a modern, cross-platform netcat alternative written in Go. It provides all the functionality of traditional netcat with additional features, better performance, and enhanced security. Whether you're a network administrator, security professional, or developer, GoCat offers the tools you need for network communication, debugging, and testing.
+**GoCat**is a modern, cross-platform netcat alternative written in Go. It provides all the functionality of traditional netcat with additional features, better performance, and enhanced security. Whether you're a network administrator, security professional, or developer, GoCat offers the tools you need for network communication, debugging, and testing.
 
-### ✨ Why GoCat?
+### ✨ Why Choose GoCat?
 
-- 🚀 **Fast & Lightweight**: Built with Go for optimal performance
-- 🌐 **Cross-Platform**: Works on Linux, macOS, Windows, and FreeBSD
-- 🔒 **Secure**: Modern security practices and safe defaults
-- 🎨 **User-Friendly**: Colorful output and intuitive commands
-- 📦 **Easy Installation**: Multiple installation methods available
-- 🔧 **Extensible**: Clean codebase for easy contributions
-
+- 🚀 Fast & Lightweight: Built with Go for optimal performance
+- 🌐 Cross-Platform: Works on Linux, macOS, Windows, and FreeBSD
+- 🔒 Secure: Modern security practices and safe defaults
+- 🎨 User-Friendly: Colorful output and intuitive commands
+- 📦 Easy Installation: Multiple installation methods available
+- 🔧 Extensible: Clean codebase for easy contributions
 ---
 
-## 🎯 Features
+## 🎯 Key Features
 
-### 🌐 Network Operations
-- **TCP/UDP Support**: Full support for both protocols
-- **IPv4/IPv6**: Native support for both IP versions
-- **Port Scanning**: Built-in port scanning capabilities
-- **Proxy Support**: SOCKS and HTTP proxy support
-- **SSL/TLS**: Secure connections with certificate validation
+### 🌐 Network Protocols
+- ✅ **TCP/UDP Support**: Full support for both protocols with advanced options
+- ✅ **IPv4/IPv6**: Native dual-stack support
+- ✅ **SSL/TLS**: Secure connections with certificate validation
+- ✅ **Proxy Support**: SOCKS5 and HTTP proxy support
+- ✅ **Keep-Alive**: Configurable connection keep-alive
+
+### 🔧 Advanced Features
+- ✅ **Interactive Mode**: Full PTY support with command history
+- ✅ **Connection Retry**: Exponential backoff with configurable attempts
+- ✅ **Signal Handling**: Graceful shutdown and signal blocking
+- ✅ **Timeout Control**: Configurable connection and read timeouts
+- ✅ **Concurrent Connections**: Handle multiple connections simultaneously
+- ✅ **Comprehensive Logging**: Structured logging with multiple levels
 
 ### 🔧 Advanced Features
 - **Interactive Mode**: Real-time bidirectional communication
