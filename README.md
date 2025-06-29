@@ -8,7 +8,7 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/ibrahmsql/gocat/ci.yml?style=for-the-badge)](https://github.com/ibrahmsql/gocat/actions)
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/ibrahmsql/gocat/main/assets/terminal-logo.png" alt="GoCat Logo" width="400" height="300">
+  <img src="https://raw.githubusercontent.com/ibrahmsql/gocat/main/assets/Gocat.png" alt="GoCat Logo" width="400" height="300">
 </div>
 
 **A modern, feature-rich  netcat alternative written in Go**
