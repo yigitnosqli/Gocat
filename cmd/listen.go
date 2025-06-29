@@ -21,20 +21,36 @@ import (
 )
 
 var (
-	interactive      bool
-	blockSignals     bool
-	localInteractive bool
-	execCmd          string
-	bindAddress      string
-	listenKeepAlive  bool
-	maxConnections   int
-	connTimeout      time.Duration
-	listenUseUDP     bool
-	listenForceIPv6  bool
-	listenForceIPv4  bool
-	listenUseSSL     bool
-	sslKeyFile       string
-	sslCertFile      string
+	interactive        bool
+	blockSignals       bool
+	localOnly          bool
+	execCommand        string
+	bindAddress        string
+	listenKeepAlive    bool
+	maxConnections     int
+	listenTimeout      time.Duration
+	listenUseUDP       bool
+	listenForceIPv6    bool
+	listenForceIPv4    bool
+	listenUseSSL       bool
+	sslKeyFile         string
+	sslCertFile        string
+	// Global flags for listen
+	listenSendOnly     bool
+	listenRecvOnly     bool
+	listenOutputFile   string
+	listenHexDumpFile  string
+	listenAppendOutput bool
+	listenNoShutdown   bool
+	// Access control flags
+	allowList          []string
+	denyList           []string
+	allowFile          string
+	denyFile           string
+	// Protocol flags for listen
+	listenTelnetMode   bool
+	listenCRLFMode     bool
+	listenZeroIOMode   bool
 )
 
 var listenCmd = &cobra.Command{
@@ -49,24 +65,24 @@ var listenCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(listenCmd)
 
-	listenCmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "Interactive mode")
-	listenCmd.Flags().BoolVarP(&blockSignals, "block-signals", "b", false, "Block exit signals like CTRL-C")
-	listenCmd.Flags().BoolVarP(&localInteractive, "local", "l", false, "Local interactive mode")
-	listenCmd.Flags().StringVarP(&execCmd, "exec", "e", "", "Execute command for each connection")
+	listenCmd.Flags().BoolVar(&interactive, "interactive", false, "Interactive mode")
+	listenCmd.Flags().BoolVar(&blockSignals, "block-signals", false, "Block exit signals like CTRL-C")
+	listenCmd.Flags().BoolVar(&localOnly, "local", false, "Local interactive mode")
+	listenCmd.Flags().StringVar(&execCommand, "listen-exec", "", "Execute command for each connection")
 	listenCmd.Flags().StringVar(&bindAddress, "bind", "0.0.0.0", "Bind to specific address")
-	listenCmd.Flags().BoolVarP(&listenKeepAlive, "keep-alive", "k", false, "Keep connections alive")
-	listenCmd.Flags().IntVarP(&maxConnections, "max-conn", "m", 10, "Maximum concurrent connections")
-	listenCmd.Flags().DurationVarP(&connTimeout, "timeout", "t", 0, "Connection timeout (0 = no timeout)")
-	listenCmd.Flags().BoolVarP(&listenUseUDP, "udp", "u", false, "Use UDP instead of TCP")
-	listenCmd.Flags().BoolVarP(&listenForceIPv6, "ipv6", "6", false, "Force IPv6")
-	listenCmd.Flags().BoolVarP(&listenForceIPv4, "ipv4", "4", false, "Force IPv4")
-	listenCmd.Flags().BoolVarP(&listenUseSSL, "ssl", "S", false, "Use SSL/TLS")
-	listenCmd.Flags().StringVarP(&sslKeyFile, "ssl-key", "K", "", "SSL private key file")
-	listenCmd.Flags().StringVarP(&sslCertFile, "ssl-cert", "C", "", "SSL certificate file")
+	listenCmd.Flags().BoolVar(&listenKeepAlive, "listen-keep-alive", false, "Keep connections alive")
+	listenCmd.Flags().IntVar(&maxConnections, "listen-max-conn", 10, "Maximum concurrent connections")
+	listenCmd.Flags().DurationVar(&listenTimeout, "listen-timeout", 0, "Connection timeout (0 = no timeout)")
+	listenCmd.Flags().BoolVar(&listenUseUDP, "listen-udp", false, "Use UDP instead of TCP")
+	listenCmd.Flags().BoolVar(&listenForceIPv6, "listen-ipv6", false, "Force IPv6")
+	listenCmd.Flags().BoolVar(&listenForceIPv4, "listen-ipv4", false, "Force IPv4")
+	listenCmd.Flags().BoolVar(&listenUseSSL, "listen-ssl", false, "Use SSL/TLS")
+	listenCmd.Flags().StringVar(&sslKeyFile, "listen-ssl-key", "", "SSL private key file")
+	listenCmd.Flags().StringVar(&sslCertFile, "listen-ssl-cert", "", "SSL certificate file")
 
 	// Mark conflicting flags
 	listenCmd.MarkFlagsMutuallyExclusive("interactive", "local")
-	listenCmd.MarkFlagsMutuallyExclusive("ipv4", "ipv6")
+	listenCmd.MarkFlagsMutuallyExclusive("listen-ipv4", "listen-ipv6")
 }
 
 func runListen(cmd *cobra.Command, args []string) {
@@ -78,6 +94,79 @@ func runListen(cmd *cobra.Command, args []string) {
 	} else {
 		host = args[0]
 		port = args[1]
+	}
+
+	// Override local flags with global flags if set
+	if globalSSL, _ := cmd.Root().PersistentFlags().GetBool("ssl"); globalSSL {
+		listenUseSSL = true
+	}
+	if globalUDP, _ := cmd.Root().PersistentFlags().GetBool("udp"); globalUDP {
+		listenUseUDP = true
+	}
+	if globalIPv4, _ := cmd.Root().PersistentFlags().GetBool("ipv4"); globalIPv4 {
+		listenForceIPv4 = true
+	}
+	if globalIPv6, _ := cmd.Root().PersistentFlags().GetBool("ipv6"); globalIPv6 {
+		listenForceIPv6 = true
+	}
+	if globalMaxConns, _ := cmd.Root().PersistentFlags().GetInt("max-conns"); globalMaxConns > 0 {
+		maxConnections = globalMaxConns
+	}
+	if globalSSLCert, _ := cmd.Root().PersistentFlags().GetString("ssl-cert"); globalSSLCert != "" {
+		sslCertFile = globalSSLCert
+	}
+	if globalSSLKey, _ := cmd.Root().PersistentFlags().GetString("ssl-key"); globalSSLKey != "" {
+		sslKeyFile = globalSSLKey
+	}
+	// Data flow control flags for listen
+	if globalSendOnly, _ := cmd.Root().PersistentFlags().GetBool("send-only"); globalSendOnly {
+		listenSendOnly = true
+	}
+	if globalRecvOnly, _ := cmd.Root().PersistentFlags().GetBool("recv-only"); globalRecvOnly {
+		listenRecvOnly = true
+	}
+	if globalNoShutdown, _ := cmd.Root().PersistentFlags().GetBool("no-shutdown"); globalNoShutdown {
+		listenNoShutdown = true
+	}
+	// Output flags for listen
+	if globalOutput, _ := cmd.Root().PersistentFlags().GetString("output"); globalOutput != "" {
+		listenOutputFile = globalOutput
+	}
+	if globalHexDump, _ := cmd.Root().PersistentFlags().GetString("hex-dump"); globalHexDump != "" {
+		listenHexDumpFile = globalHexDump
+	}
+	if globalAppend, _ := cmd.Root().PersistentFlags().GetBool("append-output"); globalAppend {
+		listenAppendOutput = true
+	}
+	// Execution flags for listen
+	if globalExec, _ := cmd.Root().PersistentFlags().GetString("exec"); globalExec != "" {
+		execCommand = globalExec
+	}
+	if globalShExec, _ := cmd.Root().PersistentFlags().GetString("sh-exec"); globalShExec != "" {
+		execCommand = "/bin/sh -c \"" + globalShExec + "\""
+	}
+	// Access control flags
+	if globalAllow, _ := cmd.Root().PersistentFlags().GetStringSlice("allow"); len(globalAllow) > 0 {
+		allowList = globalAllow
+	}
+	if globalDeny, _ := cmd.Root().PersistentFlags().GetStringSlice("deny"); len(globalDeny) > 0 {
+		denyList = globalDeny
+	}
+	if globalAllowFile, _ := cmd.Root().PersistentFlags().GetString("allowfile"); globalAllowFile != "" {
+		allowFile = globalAllowFile
+	}
+	if globalDenyFile, _ := cmd.Root().PersistentFlags().GetString("denyfile"); globalDenyFile != "" {
+		denyFile = globalDenyFile
+	}
+	// Protocol flags for listen
+	if globalTelnet, _ := cmd.Root().PersistentFlags().GetBool("telnet"); globalTelnet {
+		listenTelnetMode = true
+	}
+	if globalCRLF, _ := cmd.Root().PersistentFlags().GetBool("crlf"); globalCRLF {
+		listenCRLFMode = true
+	}
+	if globalZeroIO, _ := cmd.Root().PersistentFlags().GetBool("zero-io"); globalZeroIO {
+		listenZeroIOMode = true
 	}
 
 	if err := listen(host, port); err != nil {
@@ -98,6 +187,12 @@ func listen(host, port string) error {
 	} else if listenForceIPv4 {
 		network += "4"
 	}
+
+	logger.Debug("Listening on %s using %s protocol", address, network)
+	if listenUseSSL {
+		logger.Debug("SSL/TLS enabled for listening")
+	}
+	logger.Debug("Maximum connections: %d", maxConnections)
 
 	var listener net.Listener
 	var err error
@@ -214,8 +309,8 @@ func handleUDPListener(network, address string) error {
 
 func handleConnection(conn net.Conn) {
 	// Set connection timeout if specified
-	if connTimeout > 0 {
-		if err := conn.SetDeadline(time.Now().Add(connTimeout)); err != nil {
+	if listenTimeout > 0 {
+		if err := conn.SetDeadline(time.Now().Add(listenTimeout)); err != nil {
 			logger.Error("Error setting deadline: %v", err)
 		}
 	}
@@ -241,7 +336,7 @@ func handleConnection(conn net.Conn) {
 	var err error
 	if interactive {
 		err = handleInteractive(conn)
-	} else if localInteractive {
+	} else if localOnly {
 		err = handleLocalInteractive(conn)
 	} else {
 		err = handleNormal(conn)
@@ -257,8 +352,8 @@ func handleNormal(conn net.Conn) error {
 		signals.BlockExitSignals()
 	}
 
-	if execCmd != "" {
-		if _, err := conn.Write([]byte(execCmd + "\n")); err != nil {
+	if execCommand != "" {
+		if _, err := conn.Write([]byte(execCommand + "\n")); err != nil {
 			return fmt.Errorf("failed to send exec command: %v", err)
 		}
 	}

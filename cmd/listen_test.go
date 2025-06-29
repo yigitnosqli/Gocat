@@ -90,12 +90,12 @@ func TestMaxConnections(t *testing.T) {
 
 func TestConnectionTimeout(t *testing.T) {
 	// Save original value
-	origConnTimeout := connTimeout
-	connTimeout = 100 * time.Millisecond
+	origListenTimeout := listenTimeout
+	listenTimeout = 100 * time.Millisecond
 
 	// Restore original value
 	defer func() {
-		connTimeout = origConnTimeout
+		listenTimeout = origListenTimeout
 	}()
 
 	// Create a mock connection that simulates timeout behavior
@@ -121,8 +121,8 @@ func TestConnectionTimeout(t *testing.T) {
 		}()
 
 		// Set deadline and test timeout
-		if connTimeout > 0 {
-			if deadlineErr := conn.SetDeadline(time.Now().Add(connTimeout)); deadlineErr != nil {
+		if listenTimeout > 0 {
+			if deadlineErr := conn.SetDeadline(time.Now().Add(listenTimeout)); deadlineErr != nil {
 				t.Logf("Error setting deadline: %v", deadlineErr)
 			}
 		}

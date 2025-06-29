@@ -158,16 +158,16 @@ func printResult(host string, port int, isOpen bool) {
 func init() {
 	rootCmd.AddCommand(scanCmd)
 
-	scanCmd.Flags().DurationVarP(&scanTimeout, "timeout", "t", 3*time.Second, "Connection timeout for each port")
-	scanCmd.Flags().IntVarP(&concurrency, "concurrency", "c", 100, "Number of concurrent scans")
-	scanCmd.Flags().StringVarP(&portRange, "ports", "p", "", "Port range to scan (e.g., 1-1000, 22,80,443)")
-	scanCmd.Flags().BoolVarP(&verboseOutput, "verbose", "v", false, "Show closed ports as well")
-	scanCmd.Flags().BoolVarP(&onlyOpen, "open", "o", true, "Show only open ports")
-	scanCmd.Flags().BoolVarP(&useUDPScan, "udp", "u", false, "Use UDP instead of TCP")
-	scanCmd.Flags().BoolVarP(&forceIPv6Scan, "ipv6", "6", false, "Force IPv6")
-	scanCmd.Flags().BoolVarP(&forceIPv4Scan, "ipv4", "4", false, "Force IPv4")
+	scanCmd.Flags().DurationVar(&scanTimeout, "scan-timeout", 3*time.Second, "Connection timeout for each port")
+	scanCmd.Flags().IntVar(&concurrency, "concurrency", 100, "Number of concurrent scans")
+	scanCmd.Flags().StringVar(&portRange, "ports", "", "Port range to scan (e.g., 1-1000, 22,80,443)")
+	scanCmd.Flags().BoolVar(&verboseOutput, "scan-verbose", false, "Show closed ports as well")
+	scanCmd.Flags().BoolVar(&onlyOpen, "open", true, "Show only open ports")
+	scanCmd.Flags().BoolVar(&useUDPScan, "scan-udp", false, "Use UDP instead of TCP for scanning")
+	scanCmd.Flags().BoolVar(&forceIPv6Scan, "scan-ipv6", false, "Force IPv6 for scanning")
+	scanCmd.Flags().BoolVar(&forceIPv4Scan, "scan-ipv4", false, "Force IPv4 for scanning")
 
 	// Mark conflicting flags
-	scanCmd.MarkFlagsMutuallyExclusive("ipv4", "ipv6")
-	scanCmd.MarkFlagsMutuallyExclusive("verbose", "open")
+	scanCmd.MarkFlagsMutuallyExclusive("scan-ipv4", "scan-ipv6")
+	scanCmd.MarkFlagsMutuallyExclusive("scan-verbose", "open")
 }
