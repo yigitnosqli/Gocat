@@ -22,7 +22,7 @@
 
 ## 🌟 Overview
 
-**GoCat**is a modern, cross-platform netcat alternative written in Go. It provides all the functionality of traditional netcat with additional features, better performance, and enhanced security. Whether you're a network administrator, security professional, or developer, GoCat offers the tools you need for network communication, debugging, and testing.
+**GoCat** is a modern, cross-platform netcat alternative written in Go. It provides all the functionality of traditional netcat with additional features, better performance, and enhanced security. Whether you're a network administrator, security professional, or developer, GoCat offers the tools you need for network communication, debugging, and testing.
 
 ### ✨ Why Choose GoCat?
 
