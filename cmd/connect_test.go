@@ -85,7 +85,11 @@ func BenchmarkConnect(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer listener.Close()
+	defer func() {
+		if err := listener.Close(); err != nil {
+			b.Logf("Error closing listener: %v", err)
+		}
+	}()
 
 	go func() {
 		for {
@@ -93,7 +97,9 @@ func BenchmarkConnect(b *testing.B) {
 			if err != nil {
 				return
 			}
-			conn.Close()
+			if err := conn.Close(); err != nil {
+				b.Logf("Error closing connection: %v", err)
+			}
 		}
 	}()
 
@@ -107,6 +113,8 @@ func BenchmarkConnect(b *testing.B) {
 			b.Error(err)
 			continue
 		}
-		conn.Close()
+		if err := conn.Close(); err != nil {
+			b.Logf("Error closing connection: %v", err)
+		}
 	}
 }

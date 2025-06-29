@@ -1,0 +1,33 @@
+# GoCat Color Theme Configuration
+# Copy this file to ~/.gocat-theme.yml to use custom colors
+
+# Available colors: black, red, green, yellow, blue, magenta, cyan, white
+# You can also use hex colors like "#FF0000" or RGB like "rgb(255,0,0)"
+
+colors:
+  # Success messages (connections, open ports)
+  success: "green"
+  
+  # Error messages (failed connections, closed ports)
+  error: "red"
+  
+  # Warning messages
+  warning: "yellow"
+  
+  # Information messages
+  info: "cyan"
+  
+  # Highlighted text (incoming connections, data)
+  highlight: "magenta"
+  
+  # Debug messages
+  debug: "blue"
+
+# Example with custom hex colors:
+# colors:
+#   success: "#00FF00"    # Bright green
+#   error: "#FF0000"      # Bright red
+#   warning: "#FFFF00"    # Bright yellow
+#   info: "#00FFFF"       # Bright cyan
+#   highlight: "#FF00FF"  # Bright magenta
+#   debug: "#0000FF"      # Bright blue

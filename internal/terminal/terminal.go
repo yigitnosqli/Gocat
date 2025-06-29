@@ -3,10 +3,7 @@
 
 package terminal
 
-import (
-	"fmt"
-	"runtime"
-)
+// No imports needed for this simple implementation
 
 // TerminalState represents the state of a terminal
 type TerminalState struct {
@@ -31,10 +28,7 @@ func MakeRaw(fd int) (*TerminalState, error) {
 
 // SetupTerminal sets up the terminal for interactive mode (Unix)
 func SetupTerminal() (*TerminalState, error) {
-	if runtime.GOOS != "windows" {
-		// On Unix systems, we don't need special terminal setup for basic functionality
-		// In a full implementation, this would configure the terminal properly
-		return &TerminalState{}, nil
-	}
-	return nil, fmt.Errorf("unsupported platform: %s", runtime.GOOS)
+	// On Unix systems, we don't need special terminal setup for basic functionality
+	// In a full implementation, this would configure the terminal properly
+	return &TerminalState{}, nil
 }

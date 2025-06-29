@@ -13,12 +13,11 @@ import (
 	"time"
 
 	"github.com/creack/pty"
-	"github.com/fatih/color"
+	"github.com/spf13/cobra"
 	"github.com/ibrahmsql/gocat/internal/logger"
 	"github.com/ibrahmsql/gocat/internal/readline"
 	"github.com/ibrahmsql/gocat/internal/signals"
 	"github.com/ibrahmsql/gocat/internal/terminal"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -115,9 +114,16 @@ func listen(host, port string) error {
 	if err != nil {
 		return fmt.Errorf("failed to bind to %s: %v", address, err)
 	}
-	defer listener.Close()
+	defer func() {
+		if err := listener.Close(); err != nil {
+			logger.Error("Error closing listener: %v", err)
+		}
+	}()
 
-	color.Green("Listening on %s", address)
+	theme := logger.GetCurrentTheme()
+	if _, err := theme.Success.Printf("Listening on %s\n", address); err != nil {
+		logger.Error("Error printing success message: %v", err)
+	}
 
 	// Handle multiple connections with semaphore
 	connSemaphore := make(chan struct{}, maxConnections)
@@ -175,9 +181,16 @@ func handleUDPListener(network, address string) error {
 	if err != nil {
 		return fmt.Errorf("failed to bind UDP: %v", err)
 	}
-	defer udpConn.Close()
+	defer func() {
+		if err := udpConn.Close(); err != nil {
+			logger.Error("Error closing UDP connection: %v", err)
+		}
+	}()
 
-	color.Green("Listening on %s (UDP)", address)
+	theme := logger.GetCurrentTheme()
+		if _, err := theme.Success.Printf("Listening on %s (UDP)\n", address); err != nil {
+		logger.Error("Error printing success message: %v", err)
+	}
 
 	buffer := make([]byte, 4096)
 	for {
@@ -187,7 +200,10 @@ func handleUDPListener(network, address string) error {
 			continue
 		}
 
-		color.Cyan("UDP packet from %s: %s", clientAddr, string(buffer[:n]))
+		theme := logger.GetCurrentTheme()
+		if _, err := theme.Highlight.Printf("UDP packet from %s: %s\n", clientAddr, string(buffer[:n])); err != nil {
+			logger.Error("Error printing highlight message: %v", err)
+		}
 
 		// Echo back for UDP
 		if _, err := udpConn.WriteToUDP(buffer[:n], clientAddr); err != nil {
@@ -199,7 +215,9 @@ func handleUDPListener(network, address string) error {
 func handleConnection(conn net.Conn) {
 	// Set connection timeout if specified
 	if connTimeout > 0 {
-		conn.SetDeadline(time.Now().Add(connTimeout))
+		if err := conn.SetDeadline(time.Now().Add(connTimeout)); err != nil {
+			logger.Error("Error setting deadline: %v", err)
+		}
 	}
 
 	// Configure keep-alive for TCP connections
@@ -208,12 +226,17 @@ func handleConnection(conn net.Conn) {
 			if err := tcpConn.SetKeepAlive(true); err != nil {
 				logger.Warn("Failed to enable keep-alive: %v", err)
 			} else {
-				tcpConn.SetKeepAlivePeriod(30 * time.Second)
+				if err := tcpConn.SetKeepAlivePeriod(30 * time.Second); err != nil {
+				logger.Warn("Failed to set keep-alive period: %v", err)
+			}
 			}
 		}
 	}
 
-	color.Cyan("Connection received from %s", conn.RemoteAddr())
+	theme := logger.GetCurrentTheme()
+	if _, err := theme.Highlight.Printf("Connection received from %s\n", conn.RemoteAddr()); err != nil {
+		logger.Error("Error printing highlight message: %v", err)
+	}
 
 	var err error
 	if interactive {
@@ -263,7 +286,11 @@ func handleInteractive(conn net.Conn) error {
 	// Setup terminal for interactive mode on Unix systems
 	if runtime.GOOS != "windows" {
 		if termState, err := terminal.SetupTerminal(); err == nil {
-			defer termState.Restore()
+			defer func() {
+			if err := termState.Restore(); err != nil {
+				logger.Error("Error restoring terminal state: %v", err)
+			}
+		}()
 		}
 	}
 
@@ -280,7 +307,11 @@ func handleInteractive(conn net.Conn) error {
 	if err != nil {
 		return fmt.Errorf("failed to start pty: %v", err)
 	}
-	defer ptmx.Close()
+	defer func() {
+		if err := ptmx.Close(); err != nil {
+			logger.Error("Error closing pty: %v", err)
+		}
+	}()
 
 	// Handle PTY size changes
 	go func() {
@@ -313,7 +344,10 @@ func handleLocalInteractive(conn net.Conn) error {
 		}
 	}()
 
-	color.Cyan("Connection received")
+	theme := logger.GetCurrentTheme()
+	if _, err := theme.Highlight.Printf("Connection received\n"); err != nil {
+		logger.Error("Error printing highlight message: %v", err)
+	}
 
 	// Create readline editor
 	editor := readline.NewEditor()

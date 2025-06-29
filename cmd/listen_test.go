@@ -59,7 +59,11 @@ func TestMaxConnections(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer listener.Close()
+	defer func() {
+		if closeErr := listener.Close(); closeErr != nil {
+			t.Logf("Error closing listener: %v", closeErr)
+		}
+	}()
 
 	addr := listener.Addr().(*net.TCPAddr)
 
@@ -77,7 +81,9 @@ func TestMaxConnections(t *testing.T) {
 	// Clean up
 	for _, conn := range connections {
 		if conn != nil {
-			conn.Close()
+			if err := conn.Close(); err != nil {
+				t.Logf("Error closing connection: %v", err)
+			}
 		}
 	}
 }
@@ -97,18 +103,28 @@ func TestConnectionTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer listener.Close()
+	defer func() {
+		if closeErr := listener.Close(); closeErr != nil {
+			t.Logf("Error closing listener: %v", closeErr)
+		}
+	}()
 
 	go func() {
 		conn, acceptErr := listener.Accept()
 		if acceptErr != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() {
+			if closeErr := conn.Close(); closeErr != nil {
+				t.Logf("Error closing connection: %v", closeErr)
+			}
+		}()
 
 		// Set deadline and test timeout
 		if connTimeout > 0 {
-			conn.SetDeadline(time.Now().Add(connTimeout))
+			if deadlineErr := conn.SetDeadline(time.Now().Add(connTimeout)); deadlineErr != nil {
+				t.Logf("Error setting deadline: %v", deadlineErr)
+			}
 		}
 
 		// Try to read (should timeout)
@@ -124,7 +140,11 @@ func TestConnectionTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			t.Logf("Error closing connection: %v", err)
+		}
+	}()
 
 	// Wait for the timeout test to complete
 	time.Sleep(200 * time.Millisecond)
@@ -138,7 +158,9 @@ func BenchmarkListen(b *testing.B) {
 			b.Error(err)
 			continue
 		}
-		listener.Close()
+		if err := listener.Close(); err != nil {
+			b.Logf("Error closing listener: %v", err)
+		}
 	}
 }
 
@@ -148,7 +170,11 @@ func BenchmarkHandleConnection(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer listener.Close()
+	defer func() {
+		if err := listener.Close(); err != nil {
+			b.Logf("Error closing listener: %v", err)
+		}
+	}()
 
 	addr := listener.Addr().(*net.TCPAddr)
 
@@ -165,12 +191,18 @@ func BenchmarkHandleConnection(b *testing.B) {
 		serverConn, err := listener.Accept()
 		if err != nil {
 			b.Error(err)
-			conn.Close()
+			if err := conn.Close(); err != nil {
+				b.Logf("Error closing connection: %v", err)
+			}
 			continue
 		}
 
 		// Close connections
-		conn.Close()
-		serverConn.Close()
+		if err := conn.Close(); err != nil {
+			b.Logf("Error closing connection: %v", err)
+		}
+		if err := serverConn.Close(); err != nil {
+			b.Logf("Error closing server connection: %v", err)
+		}
 	}
 }

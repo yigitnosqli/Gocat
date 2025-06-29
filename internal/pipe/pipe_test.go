@@ -130,11 +130,14 @@ func TestPipeWithBuffer(t *testing.T) {
 				defer func() {
 					if r := recover(); r != nil {
 						// Expected panic from os.Exit(0)
+						t.Logf("Recovered from panic: %v", r)
 					}
 					done <- true
 				}()
-				PipeWithBuffer(dst, src, tt.bufferSize)
-			}()
+			if err := PipeWithBuffer(dst, src, tt.bufferSize); err != nil {
+				t.Logf("PipeWithBuffer error: %v", err)
+			}
+		}()
 
 			// Wait for completion or timeout
 			select {
@@ -161,10 +164,13 @@ func TestPipeWithBufferFlush(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
 				// Expected panic from os.Exit(0)
+				t.Logf("Recovered from panic: %v", r)
 			}
 			done <- true
 		}()
-		PipeWithBuffer(dst, src, 1024)
+		if err := PipeWithBuffer(dst, src, 1024); err != nil {
+			t.Logf("PipeWithBuffer error: %v", err)
+		}
 	}()
 
 	// Wait for completion
@@ -229,6 +235,7 @@ func TestPipeDataBasic(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
 				// Expected panic from os.Exit(0)
+				t.Logf("Recovered from panic: %v", r)
 			}
 			done <- true
 		}()
@@ -265,10 +272,13 @@ func BenchmarkPipeWithBuffer(b *testing.B) {
 			defer func() {
 				if r := recover(); r != nil {
 					// Expected panic from os.Exit(0)
+					b.Logf("Recovered from panic: %v", r)
 				}
 				done <- true
 			}()
-			PipeWithBuffer(dst, src, bufferSize)
+			if err := PipeWithBuffer(dst, src, bufferSize); err != nil {
+				b.Logf("PipeWithBuffer error: %v", err)
+			}
 		}()
 
 		// Wait for completion
@@ -293,10 +303,13 @@ func BenchmarkPipeWithBufferSmallBuffer(b *testing.B) {
 			defer func() {
 				if r := recover(); r != nil {
 					// Expected panic from os.Exit(0)
+					b.Logf("Recovered from panic: %v", r)
 				}
 				done <- true
 			}()
-			PipeWithBuffer(dst, src, bufferSize)
+			if err := PipeWithBuffer(dst, src, bufferSize); err != nil {
+				b.Logf("PipeWithBuffer error: %v", err)
+			}
 		}()
 
 		select {
@@ -320,10 +333,13 @@ func BenchmarkPipeWithBufferLargeBuffer(b *testing.B) {
 			defer func() {
 				if r := recover(); r != nil {
 					// Expected panic from os.Exit(0)
+					b.Logf("Recovered from panic: %v", r)
 				}
 				done <- true
 			}()
-			PipeWithBuffer(dst, src, bufferSize)
+			if err := PipeWithBuffer(dst, src, bufferSize); err != nil {
+				b.Logf("PipeWithBuffer error: %v", err)
+			}
 		}()
 
 		select {

@@ -15,6 +15,7 @@ func TestNewEditor(t *testing.T) {
 
 	if editor == nil {
 		t.Error("NewEditor() returned nil")
+		return
 	}
 
 	if editor.reader == nil {

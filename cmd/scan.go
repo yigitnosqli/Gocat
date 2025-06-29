@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/ibrahmsql/gocat/internal/logger"
 	"github.com/spf13/cobra"
 )
@@ -43,11 +43,11 @@ configurable concurrency and timeout settings.`,
 			ports = portRange
 		}
 
-		logger.Info("Starting port scan", "host", host, "ports", ports)
+		logger.Info("Starting port scan on %s for ports %s", host, ports)
 
 		portList, err := parsePortRange(ports)
 		if err != nil {
-			logger.Error("Invalid port range", "error", err)
+			logger.Error("Invalid port range: %v", err)
 			return
 		}
 
@@ -135,15 +135,23 @@ func scanPort(host string, port int) bool {
 	if err != nil {
 		return false
 	}
-	conn.Close()
+	if err := conn.Close(); err != nil {
+		// Log close error but don't fail the scan
+		logger.Warn("Failed to close connection: %v", err)
+	}
 	return true
 }
 
 func printResult(host string, port int, isOpen bool) {
+	theme := logger.GetCurrentTheme()
 	if isOpen {
-		color.Green("[+] %s:%d - OPEN", host, port)
+		if _, err := theme.Success.Printf("[+] %s:%d - OPEN\n", host, port); err != nil {
+			log.Printf("Error printing success message: %v", err)
+		}
 	} else if verboseOutput {
-		color.Red("[-] %s:%d - CLOSED", host, port)
+		if _, err := theme.Error.Printf("[-] %s:%d - CLOSED\n", host, port); err != nil {
+			log.Printf("Error printing error message: %v", err)
+		}
 	}
 }
 

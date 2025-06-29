@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/url"
 	"os"
@@ -14,9 +15,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fatih/color"
-	"github.com/ibrahmsql/gocat/internal/logger"
 	"github.com/spf13/cobra"
+	"github.com/ibrahmsql/gocat/internal/logger"
 	"golang.org/x/net/proxy"
 )
 
@@ -132,12 +132,17 @@ func connect(host, port, shell string) error {
 			if err := tcpConn.SetKeepAlive(true); err != nil {
 				logger.Warn("Failed to enable keep-alive: %v", err)
 			} else {
-				tcpConn.SetKeepAlivePeriod(30 * time.Second)
+				if err := tcpConn.SetKeepAlivePeriod(30 * time.Second); err != nil {
+				logger.Warn("Failed to set keep-alive period: %v", err)
+			}
 			}
 		}
 	}
 
-	color.Green("✓ Connected to %s", address)
+	theme := logger.GetCurrentTheme()
+	if _, err := theme.Success.Printf("✓ Connected to %s\n", address); err != nil {
+		log.Printf("Error printing success message: %v", err)
+	}
 
 	if runtime.GOOS == "windows" {
 		return connectWindows(conn, shell)
@@ -195,7 +200,9 @@ func dialWithHTTPProxy(network, address string, proxyURL *url.URL, dialer *net.D
 	connectReq := fmt.Sprintf("CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", address, address)
 	_, err = proxyConn.Write([]byte(connectReq))
 	if err != nil {
-		proxyConn.Close()
+		if closeErr := proxyConn.Close(); closeErr != nil {
+			log.Printf("Error closing proxy connection: %v", closeErr)
+		}
 		return nil, fmt.Errorf("failed to send CONNECT request: %v", err)
 	}
 
@@ -203,13 +210,17 @@ func dialWithHTTPProxy(network, address string, proxyURL *url.URL, dialer *net.D
 	buffer := make([]byte, 1024)
 	n, err := proxyConn.Read(buffer)
 	if err != nil {
-		proxyConn.Close()
+		if closeErr := proxyConn.Close(); closeErr != nil {
+			log.Printf("Error closing proxy connection: %v", closeErr)
+		}
 		return nil, fmt.Errorf("failed to read proxy response: %v", err)
 	}
 
 	response := string(buffer[:n])
 	if !strings.Contains(response, "200") {
-		proxyConn.Close()
+		if closeErr := proxyConn.Close(); closeErr != nil {
+			log.Printf("Error closing proxy connection: %v", closeErr)
+		}
 		return nil, fmt.Errorf("proxy connection failed: %s", response)
 	}
 
@@ -246,14 +257,22 @@ func connectUnix(conn net.Conn, shell string) error {
 		if err != nil {
 			return fmt.Errorf("failed to get file descriptor: %v", err)
 		}
-		defer file.Close()
+		defer func() {
+			if err := file.Close(); err != nil {
+				log.Printf("Error closing file: %v", err)
+			}
+		}()
 		fd = int(file.Fd())
 	case *net.UnixConn:
 		file, err := c.File()
 		if err != nil {
 			return fmt.Errorf("failed to get file descriptor: %v", err)
 		}
-		defer file.Close()
+		defer func() {
+			if err := file.Close(); err != nil {
+				log.Printf("Error closing file: %v", err)
+			}
+		}()
 		fd = int(file.Fd())
 	default:
 		// Fallback to pipe-based approach for other connection types
@@ -347,7 +366,9 @@ func connectWindows(conn net.Conn, shell string) error {
 		if _, err := io.Copy(stdin, conn); err != nil {
 			logger.Error("conn to stdin copy error: %v", err)
 		}
-		stdin.Close()
+		if err := stdin.Close(); err != nil {
+			logger.Error("Error closing stdin: %v", err)
+		}
 	}()
 
 	go func() {

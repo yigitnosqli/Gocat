@@ -160,7 +160,10 @@ func (e *Editor) enableRawMode() error {
 // disableRawMode restores original terminal mode
 func (e *Editor) disableRawMode() {
 	if e.originalState != nil {
-		term.Restore(e.fd, e.originalState)
+		if err := term.Restore(e.fd, e.originalState); err != nil {
+			// Log error but don't fail, as this is cleanup code
+			fmt.Fprintf(os.Stderr, "Warning: failed to restore terminal state: %v\n", err)
+		}
 	}
 }
 
