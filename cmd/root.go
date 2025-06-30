@@ -24,6 +24,10 @@ var rootCmd = &cobra.Command{
 	Long: `Gocat is a netcat-like tool written in Go that provides network connectivity.
 It can be used for port scanning, file transfers, backdoors, port redirection,
 and many other networking tasks.
+	Long: `Gocat is a netcat-like tool written in Go that provides network connectivity.Add commentMore actions
+It can be used for port scanning, file transfers, backdoors, port redirection,
+and many other networking tasks.
+`,
 
 Basic Usage:
   gocat connect <host> <port>    # Connect to host:port
@@ -114,6 +118,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("zero-io", false, "Zero-I/O mode, report connection status only")
 	rootCmd.PersistentFlags().BoolP("crlf", "C", false, "Use CRLF for EOL sequence")
 
+
 	// Hide advanced connection flags
 	rootCmd.PersistentFlags().MarkHidden("nodns")
 	rootCmd.PersistentFlags().MarkHidden("telnet")
@@ -147,6 +152,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("sh-exec", "c", "", "Executes the given command via /bin/sh")
 	rootCmd.PersistentFlags().StringP("exec", "e", "", "Executes the given command")
 	rootCmd.PersistentFlags().String("lua-exec", "", "Executes the given Lua script")
+
 
 	// Hide execution flags
 	rootCmd.PersistentFlags().MarkHidden("sh-exec")
@@ -223,8 +229,8 @@ func init() {
 	rootCmd.PersistentFlags().String("ssl-ciphers", "", "Cipherlist containing SSL ciphers to use")
 	rootCmd.PersistentFlags().String("ssl-servername", "", "Request distinct server name (SNI)")
 	rootCmd.PersistentFlags().String("ssl-alpn", "", "ALPN protocol list to use")
-
-	// Hide advanced SSL flags
+	
+    // Hide advanced SSL flags
 	rootCmd.PersistentFlags().MarkHidden("ssl-cert")
 	rootCmd.PersistentFlags().MarkHidden("ssl-key")
 	rootCmd.PersistentFlags().MarkHidden("ssl-verify")
