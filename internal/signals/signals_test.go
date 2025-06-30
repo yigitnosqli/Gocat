@@ -171,6 +171,7 @@ func TestSignalHandlerWithPanic(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
 				// Expected panic, test should continue
+				t.Logf("Recovered from expected panic: %v", r)
 			}
 		}()
 		panic("test panic")
@@ -250,7 +251,9 @@ func TestSignalHandlerExecution(t *testing.T) {
 	// Simulate signal
 	pid := os.Getpid()
 	if process, err := os.FindProcess(pid); err == nil {
-		process.Signal(os.Interrupt)
+		if err := process.Signal(os.Interrupt); err != nil {
+			t.Logf("Failed to send signal: %v", err)
+		}
 		time.Sleep(50 * time.Millisecond)
 	}
 

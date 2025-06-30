@@ -13,29 +13,44 @@ import (
 	"time"
 
 	"github.com/creack/pty"
-	"github.com/fatih/color"
+	"github.com/spf13/cobra"
 	"github.com/ibrahmsql/gocat/internal/logger"
 	"github.com/ibrahmsql/gocat/internal/readline"
 	"github.com/ibrahmsql/gocat/internal/signals"
 	"github.com/ibrahmsql/gocat/internal/terminal"
-	"github.com/spf13/cobra"
 )
 
 var (
-	interactive      bool
-	blockSignals     bool
-	localInteractive bool
-	execCmd          string
-	bindAddress      string
-	listenKeepAlive  bool
-	maxConnections   int
-	connTimeout      time.Duration
-	listenUseUDP     bool
-	listenForceIPv6  bool
-	listenForceIPv4  bool
-	listenUseSSL     bool
-	sslKeyFile       string
-	sslCertFile      string
+	interactive        bool
+	blockSignals       bool
+	localOnly          bool
+	execCommand        string
+	bindAddress        string
+	listenKeepAlive    bool
+	maxConnections     int
+	listenTimeout      time.Duration
+	listenUseUDP       bool
+	listenForceIPv6    bool
+	listenForceIPv4    bool
+	listenUseSSL       bool
+	sslKeyFile         string
+	sslCertFile        string
+	// Global flags for listen
+	listenSendOnly     bool
+	listenRecvOnly     bool
+	listenOutputFile   string
+	listenHexDumpFile  string
+	listenAppendOutput bool
+	listenNoShutdown   bool
+	// Access control flags
+	allowList          []string
+	denyList           []string
+	allowFile          string
+	denyFile           string
+	// Protocol flags for listen
+	listenTelnetMode   bool
+	listenCRLFMode     bool
+	listenZeroIOMode   bool
 )
 
 var listenCmd = &cobra.Command{
@@ -50,24 +65,24 @@ var listenCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(listenCmd)
 
-	listenCmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "Interactive mode")
-	listenCmd.Flags().BoolVarP(&blockSignals, "block-signals", "b", false, "Block exit signals like CTRL-C")
-	listenCmd.Flags().BoolVarP(&localInteractive, "local", "l", false, "Local interactive mode")
-	listenCmd.Flags().StringVarP(&execCmd, "exec", "e", "", "Execute command for each connection")
+	listenCmd.Flags().BoolVar(&interactive, "interactive", false, "Interactive mode")
+	listenCmd.Flags().BoolVar(&blockSignals, "block-signals", false, "Block exit signals like CTRL-C")
+	listenCmd.Flags().BoolVar(&localOnly, "local", false, "Local interactive mode")
+	listenCmd.Flags().StringVar(&execCommand, "listen-exec", "", "Execute command for each connection")
 	listenCmd.Flags().StringVar(&bindAddress, "bind", "0.0.0.0", "Bind to specific address")
-	listenCmd.Flags().BoolVarP(&listenKeepAlive, "keep-alive", "k", false, "Keep connections alive")
-	listenCmd.Flags().IntVarP(&maxConnections, "max-conn", "m", 10, "Maximum concurrent connections")
-	listenCmd.Flags().DurationVarP(&connTimeout, "timeout", "t", 0, "Connection timeout (0 = no timeout)")
-	listenCmd.Flags().BoolVarP(&listenUseUDP, "udp", "u", false, "Use UDP instead of TCP")
-	listenCmd.Flags().BoolVarP(&listenForceIPv6, "ipv6", "6", false, "Force IPv6")
-	listenCmd.Flags().BoolVarP(&listenForceIPv4, "ipv4", "4", false, "Force IPv4")
-	listenCmd.Flags().BoolVarP(&listenUseSSL, "ssl", "S", false, "Use SSL/TLS")
-	listenCmd.Flags().StringVarP(&sslKeyFile, "ssl-key", "K", "", "SSL private key file")
-	listenCmd.Flags().StringVarP(&sslCertFile, "ssl-cert", "C", "", "SSL certificate file")
+	listenCmd.Flags().BoolVar(&listenKeepAlive, "listen-keep-alive", false, "Keep connections alive")
+	listenCmd.Flags().IntVar(&maxConnections, "listen-max-conn", 10, "Maximum concurrent connections")
+	listenCmd.Flags().DurationVar(&listenTimeout, "listen-timeout", 0, "Connection timeout (0 = no timeout)")
+	listenCmd.Flags().BoolVar(&listenUseUDP, "listen-udp", false, "Use UDP instead of TCP")
+	listenCmd.Flags().BoolVar(&listenForceIPv6, "listen-ipv6", false, "Force IPv6")
+	listenCmd.Flags().BoolVar(&listenForceIPv4, "listen-ipv4", false, "Force IPv4")
+	listenCmd.Flags().BoolVar(&listenUseSSL, "listen-ssl", false, "Use SSL/TLS")
+	listenCmd.Flags().StringVar(&sslKeyFile, "listen-ssl-key", "", "SSL private key file")
+	listenCmd.Flags().StringVar(&sslCertFile, "listen-ssl-cert", "", "SSL certificate file")
 
 	// Mark conflicting flags
 	listenCmd.MarkFlagsMutuallyExclusive("interactive", "local")
-	listenCmd.MarkFlagsMutuallyExclusive("ipv4", "ipv6")
+	listenCmd.MarkFlagsMutuallyExclusive("listen-ipv4", "listen-ipv6")
 }
 
 func runListen(cmd *cobra.Command, args []string) {
@@ -79,6 +94,79 @@ func runListen(cmd *cobra.Command, args []string) {
 	} else {
 		host = args[0]
 		port = args[1]
+	}
+
+	// Override local flags with global flags if set
+	if globalSSL, _ := cmd.Root().PersistentFlags().GetBool("ssl"); globalSSL {
+		listenUseSSL = true
+	}
+	if globalUDP, _ := cmd.Root().PersistentFlags().GetBool("udp"); globalUDP {
+		listenUseUDP = true
+	}
+	if globalIPv4, _ := cmd.Root().PersistentFlags().GetBool("ipv4"); globalIPv4 {
+		listenForceIPv4 = true
+	}
+	if globalIPv6, _ := cmd.Root().PersistentFlags().GetBool("ipv6"); globalIPv6 {
+		listenForceIPv6 = true
+	}
+	if globalMaxConns, _ := cmd.Root().PersistentFlags().GetInt("max-conns"); globalMaxConns > 0 {
+		maxConnections = globalMaxConns
+	}
+	if globalSSLCert, _ := cmd.Root().PersistentFlags().GetString("ssl-cert"); globalSSLCert != "" {
+		sslCertFile = globalSSLCert
+	}
+	if globalSSLKey, _ := cmd.Root().PersistentFlags().GetString("ssl-key"); globalSSLKey != "" {
+		sslKeyFile = globalSSLKey
+	}
+	// Data flow control flags for listen
+	if globalSendOnly, _ := cmd.Root().PersistentFlags().GetBool("send-only"); globalSendOnly {
+		listenSendOnly = true
+	}
+	if globalRecvOnly, _ := cmd.Root().PersistentFlags().GetBool("recv-only"); globalRecvOnly {
+		listenRecvOnly = true
+	}
+	if globalNoShutdown, _ := cmd.Root().PersistentFlags().GetBool("no-shutdown"); globalNoShutdown {
+		listenNoShutdown = true
+	}
+	// Output flags for listen
+	if globalOutput, _ := cmd.Root().PersistentFlags().GetString("output"); globalOutput != "" {
+		listenOutputFile = globalOutput
+	}
+	if globalHexDump, _ := cmd.Root().PersistentFlags().GetString("hex-dump"); globalHexDump != "" {
+		listenHexDumpFile = globalHexDump
+	}
+	if globalAppend, _ := cmd.Root().PersistentFlags().GetBool("append-output"); globalAppend {
+		listenAppendOutput = true
+	}
+	// Execution flags for listen
+	if globalExec, _ := cmd.Root().PersistentFlags().GetString("exec"); globalExec != "" {
+		execCommand = globalExec
+	}
+	if globalShExec, _ := cmd.Root().PersistentFlags().GetString("sh-exec"); globalShExec != "" {
+		execCommand = "/bin/sh -c \"" + globalShExec + "\""
+	}
+	// Access control flags
+	if globalAllow, _ := cmd.Root().PersistentFlags().GetStringSlice("allow"); len(globalAllow) > 0 {
+		allowList = globalAllow
+	}
+	if globalDeny, _ := cmd.Root().PersistentFlags().GetStringSlice("deny"); len(globalDeny) > 0 {
+		denyList = globalDeny
+	}
+	if globalAllowFile, _ := cmd.Root().PersistentFlags().GetString("allowfile"); globalAllowFile != "" {
+		allowFile = globalAllowFile
+	}
+	if globalDenyFile, _ := cmd.Root().PersistentFlags().GetString("denyfile"); globalDenyFile != "" {
+		denyFile = globalDenyFile
+	}
+	// Protocol flags for listen
+	if globalTelnet, _ := cmd.Root().PersistentFlags().GetBool("telnet"); globalTelnet {
+		listenTelnetMode = true
+	}
+	if globalCRLF, _ := cmd.Root().PersistentFlags().GetBool("crlf"); globalCRLF {
+		listenCRLFMode = true
+	}
+	if globalZeroIO, _ := cmd.Root().PersistentFlags().GetBool("zero-io"); globalZeroIO {
+		listenZeroIOMode = true
 	}
 
 	if err := listen(host, port); err != nil {
@@ -100,6 +188,12 @@ func listen(host, port string) error {
 		network += "4"
 	}
 
+	logger.Debug("Listening on %s using %s protocol", address, network)
+	if listenUseSSL {
+		logger.Debug("SSL/TLS enabled for listening")
+	}
+	logger.Debug("Maximum connections: %d", maxConnections)
+
 	var listener net.Listener
 	var err error
 
@@ -115,9 +209,16 @@ func listen(host, port string) error {
 	if err != nil {
 		return fmt.Errorf("failed to bind to %s: %v", address, err)
 	}
-	defer listener.Close()
+	defer func() {
+		if err := listener.Close(); err != nil {
+			logger.Error("Error closing listener: %v", err)
+		}
+	}()
 
-	color.Green("Listening on %s", address)
+	theme := logger.GetCurrentTheme()
+	if _, err := theme.Success.Printf("Listening on %s\n", address); err != nil {
+		logger.Error("Error printing success message: %v", err)
+	}
 
 	// Handle multiple connections with semaphore
 	connSemaphore := make(chan struct{}, maxConnections)
@@ -136,7 +237,9 @@ func listen(host, port string) error {
 
 		go func(c net.Conn) {
 			defer func() {
-				c.Close()
+				if err := c.Close(); err != nil {
+					logger.Error("Error closing connection: %v", err)
+				}
 				<-connSemaphore // Release semaphore slot
 				wg.Done()
 			}()
@@ -173,9 +276,16 @@ func handleUDPListener(network, address string) error {
 	if err != nil {
 		return fmt.Errorf("failed to bind UDP: %v", err)
 	}
-	defer udpConn.Close()
+	defer func() {
+		if err := udpConn.Close(); err != nil {
+			logger.Error("Error closing UDP connection: %v", err)
+		}
+	}()
 
-	color.Green("Listening on %s (UDP)", address)
+	theme := logger.GetCurrentTheme()
+		if _, err := theme.Success.Printf("Listening on %s (UDP)\n", address); err != nil {
+		logger.Error("Error printing success message: %v", err)
+	}
 
 	buffer := make([]byte, 4096)
 	for {
@@ -185,7 +295,10 @@ func handleUDPListener(network, address string) error {
 			continue
 		}
 
-		color.Cyan("UDP packet from %s: %s", clientAddr, string(buffer[:n]))
+		theme := logger.GetCurrentTheme()
+		if _, err := theme.Highlight.Printf("UDP packet from %s: %s\n", clientAddr, string(buffer[:n])); err != nil {
+			logger.Error("Error printing highlight message: %v", err)
+		}
 
 		// Echo back for UDP
 		if _, err := udpConn.WriteToUDP(buffer[:n], clientAddr); err != nil {
@@ -196,24 +309,34 @@ func handleUDPListener(network, address string) error {
 
 func handleConnection(conn net.Conn) {
 	// Set connection timeout if specified
-	if connTimeout > 0 {
-		conn.SetDeadline(time.Now().Add(connTimeout))
+	if listenTimeout > 0 {
+		if err := conn.SetDeadline(time.Now().Add(listenTimeout)); err != nil {
+			logger.Error("Error setting deadline: %v", err)
+		}
 	}
 
 	// Configure keep-alive for TCP connections
 	if listenKeepAlive && !listenUseUDP {
 		if tcpConn, ok := conn.(*net.TCPConn); ok {
-			tcpConn.SetKeepAlive(true)
-			tcpConn.SetKeepAlivePeriod(30 * time.Second)
+			if err := tcpConn.SetKeepAlive(true); err != nil {
+				logger.Warn("Failed to enable keep-alive: %v", err)
+			} else {
+				if err := tcpConn.SetKeepAlivePeriod(30 * time.Second); err != nil {
+				logger.Warn("Failed to set keep-alive period: %v", err)
+			}
+			}
 		}
 	}
 
-	color.Cyan("Connection received from %s", conn.RemoteAddr())
+	theme := logger.GetCurrentTheme()
+	if _, err := theme.Highlight.Printf("Connection received from %s\n", conn.RemoteAddr()); err != nil {
+		logger.Error("Error printing highlight message: %v", err)
+	}
 
 	var err error
 	if interactive {
 		err = handleInteractive(conn)
-	} else if localInteractive {
+	} else if localOnly {
 		err = handleLocalInteractive(conn)
 	} else {
 		err = handleNormal(conn)
@@ -229,8 +352,8 @@ func handleNormal(conn net.Conn) error {
 		signals.BlockExitSignals()
 	}
 
-	if execCmd != "" {
-		if _, err := conn.Write([]byte(execCmd + "\n")); err != nil {
+	if execCommand != "" {
+		if _, err := conn.Write([]byte(execCommand + "\n")); err != nil {
 			return fmt.Errorf("failed to send exec command: %v", err)
 		}
 	}
@@ -258,7 +381,11 @@ func handleInteractive(conn net.Conn) error {
 	// Setup terminal for interactive mode on Unix systems
 	if runtime.GOOS != "windows" {
 		if termState, err := terminal.SetupTerminal(); err == nil {
-			defer termState.Restore()
+			defer func() {
+			if err := termState.Restore(); err != nil {
+				logger.Error("Error restoring terminal state: %v", err)
+			}
+		}()
 		}
 	}
 
@@ -275,7 +402,11 @@ func handleInteractive(conn net.Conn) error {
 	if err != nil {
 		return fmt.Errorf("failed to start pty: %v", err)
 	}
-	defer ptmx.Close()
+	defer func() {
+		if err := ptmx.Close(); err != nil {
+			logger.Error("Error closing pty: %v", err)
+		}
+	}()
 
 	// Handle PTY size changes
 	go func() {
@@ -308,7 +439,10 @@ func handleLocalInteractive(conn net.Conn) error {
 		}
 	}()
 
-	color.Cyan("Connection received")
+	theme := logger.GetCurrentTheme()
+	if _, err := theme.Highlight.Printf("Connection received\n"); err != nil {
+		logger.Error("Error printing highlight message: %v", err)
+	}
 
 	// Create readline editor
 	editor := readline.NewEditor()

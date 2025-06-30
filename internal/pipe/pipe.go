@@ -1,6 +1,7 @@
 package pipe
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -53,7 +54,9 @@ func PipeWithBuffer(dst io.Writer, src io.Reader, bufferSize int) error {
 
 		// Flush if possible
 		if flusher, ok := dst.(interface{ Flush() error }); ok {
-			flusher.Flush()
+			if err := flusher.Flush(); err != nil {
+				return fmt.Errorf("flush error: %v", err)
+			}
 		}
 	}
 }

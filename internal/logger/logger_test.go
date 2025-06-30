@@ -31,6 +31,7 @@ func TestNewLogger(t *testing.T) {
 			logger := NewLogger(tt.level)
 			if logger == nil {
 				t.Error("NewLogger returned nil")
+				return
 			}
 			if logger.level != tt.level {
 				t.Errorf("expected level %d, got %d", tt.level, logger.level)
@@ -50,11 +51,11 @@ func TestLoggerLevels(t *testing.T) {
 	}
 
 	// Test level comparison logic
-	if !(logger.level <= LevelWarn) {
+	if logger.level > LevelWarn {
 		t.Error("Warn messages should be logged when level is warn")
 	}
 
-	if !(logger.level <= LevelError) {
+	if logger.level > LevelError {
 		t.Error("Error messages should be logged when level is warn")
 	}
 
