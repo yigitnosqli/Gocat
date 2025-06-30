@@ -21,7 +21,10 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "gocat",
 	Short: "A modern netcat-like tool written in Go",
-	Long: `GoCat - Modern netcat alternative with enhanced features
+	Long: `Gocat is a netcat-like tool written in Go that provides network connectivity.Add commentMore actions
+It can be used for port scanning, file transfers, backdoors, port redirection,
+and many other networking tasks.
+`,
 
 Basic Usage:
   gocat connect <host> <port>    # Connect to host:port
