@@ -24,10 +24,6 @@ var rootCmd = &cobra.Command{
 	Long: `Gocat is a netcat-like tool written in Go that provides network connectivity.
 It can be used for port scanning, file transfers, backdoors, port redirection,
 and many other networking tasks.
-	Long: `Gocat is a netcat-like tool written in Go that provides network connectivity.Add commentMore actions
-It can be used for port scanning, file transfers, backdoors, port redirection,
-and many other networking tasks.
-`,
 
 Basic Usage:
   gocat connect <host> <port>    # Connect to host:port
