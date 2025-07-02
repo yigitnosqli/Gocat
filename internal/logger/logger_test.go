@@ -139,9 +139,11 @@ func TestLogLevels(t *testing.T) {
 		level LogLevel
 		value int
 	}{
-		{"LevelInfo", LevelInfo, 0},
-		{"LevelWarn", LevelWarn, 1},
-		{"LevelError", LevelError, 2},
+		{"LevelDebug", LevelDebug, 0},
+		{"LevelInfo", LevelInfo, 1},
+		{"LevelWarn", LevelWarn, 2},
+		{"LevelError", LevelError, 3},
+		{"LevelFatal", LevelFatal, 4},
 	}
 
 	for _, tt := range tests {

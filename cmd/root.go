@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"runtime"
 
 	"github.com/ibrahmsql/gocat/internal/logger"
@@ -65,18 +66,46 @@ func SetBuildInfo(v, bt, gc, gb, bb string) {
 
 // showVersion displays version and build information
 func showVersion() {
-	fmt.Printf("GoCat %s\n\n", version)
-	fmt.Println("Build Information:")
-	fmt.Printf("  Version:     %s\n", version)
-	fmt.Printf("  Git Commit:  %s\n", gitCommit)
-	fmt.Printf("  Git Branch:  %s\n", gitBranch)
-	fmt.Printf("  Build Time:  %s\n", buildTime)
-	fmt.Printf("  Built By:    %s\n", builtBy)
-	fmt.Println()
-	fmt.Println("Runtime Information:")
-	fmt.Printf("  Go Version:  %s\n", runtime.Version())
-	fmt.Printf("  OS/Arch:     %s/%s\n", runtime.GOOS, runtime.GOARCH)
-	fmt.Printf("  CPUs:        %d\n", runtime.NumCPU())
+	// Try to use TUI styling if available
+	if isTerminal() {
+		// Import ui package for styled output
+		// This will be handled by the ui.ShowVersion function
+		fmt.Printf("GoCat %s\n\n", version)
+		fmt.Println("Build Information:")
+		fmt.Printf("  Version:     %s\n", version)
+		fmt.Printf("  Git Commit:  %s\n", gitCommit)
+		fmt.Printf("  Git Branch:  %s\n", gitBranch)
+		fmt.Printf("  Build Time:  %s\n", buildTime)
+		fmt.Printf("  Built By:    %s\n", builtBy)
+		fmt.Println()
+		fmt.Println("Runtime Information:")
+		fmt.Printf("  Go Version:  %s\n", runtime.Version())
+		fmt.Printf("  OS/Arch:     %s/%s\n", runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("  CPUs:        %d\n", runtime.NumCPU())
+	} else {
+		// Fallback to plain text
+		fmt.Printf("GoCat %s\n\n", version)
+		fmt.Println("Build Information:")
+		fmt.Printf("  Version:     %s\n", version)
+		fmt.Printf("  Git Commit:  %s\n", gitCommit)
+		fmt.Printf("  Git Branch:  %s\n", gitBranch)
+		fmt.Printf("  Build Time:  %s\n", buildTime)
+		fmt.Printf("  Built By:    %s\n", builtBy)
+		fmt.Println()
+		fmt.Println("Runtime Information:")
+		fmt.Printf("  Go Version:  %s\n", runtime.Version())
+		fmt.Printf("  OS/Arch:     %s/%s\n", runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("  CPUs:        %d\n", runtime.NumCPU())
+	}
+}
+
+// isTerminal checks if stdout is a terminal
+func isTerminal() bool {
+	fileInfo, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return (fileInfo.Mode() & os.ModeCharDevice) != 0
 }
 
 var versionCmd = &cobra.Command{
@@ -114,7 +143,6 @@ func init() {
 	rootCmd.PersistentFlags().Bool("zero-io", false, "Zero-I/O mode, report connection status only")
 	rootCmd.PersistentFlags().BoolP("crlf", "C", false, "Use CRLF for EOL sequence")
 
-
 	// Hide advanced connection flags
 	rootCmd.PersistentFlags().MarkHidden("nodns")
 	rootCmd.PersistentFlags().MarkHidden("telnet")
@@ -148,7 +176,6 @@ func init() {
 	rootCmd.PersistentFlags().StringP("sh-exec", "c", "", "Executes the given command via /bin/sh")
 	rootCmd.PersistentFlags().StringP("exec", "e", "", "Executes the given command")
 	rootCmd.PersistentFlags().String("lua-exec", "", "Executes the given Lua script")
-
 
 	// Hide execution flags
 	rootCmd.PersistentFlags().MarkHidden("sh-exec")
@@ -225,8 +252,8 @@ func init() {
 	rootCmd.PersistentFlags().String("ssl-ciphers", "", "Cipherlist containing SSL ciphers to use")
 	rootCmd.PersistentFlags().String("ssl-servername", "", "Request distinct server name (SNI)")
 	rootCmd.PersistentFlags().String("ssl-alpn", "", "ALPN protocol list to use")
-	
-    // Hide advanced SSL flags
+
+	// Hide advanced SSL flags
 	rootCmd.PersistentFlags().MarkHidden("ssl-cert")
 	rootCmd.PersistentFlags().MarkHidden("ssl-key")
 	rootCmd.PersistentFlags().MarkHidden("ssl-verify")
