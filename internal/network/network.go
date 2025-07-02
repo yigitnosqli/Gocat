@@ -66,13 +66,13 @@ func DefaultConnectionOptions() *ConnectionOptions {
 
 // Connection represents a network connection with enhanced features
 type Connection struct {
-	conn       net.Conn
-	options    *ConnectionOptions
-	validator  *security.InputValidator
-	mu         sync.RWMutex
-	closed     bool
-	connectedAt time.Time
-	bytesRead   int64
+	conn         net.Conn
+	options      *ConnectionOptions
+	validator    *security.InputValidator
+	mu           sync.RWMutex
+	closed       bool
+	connectedAt  time.Time
+	bytesRead    int64
 	bytesWritten int64
 	lastActivity time.Time
 }
@@ -174,27 +174,27 @@ func (c *Connection) Stats() ConnectionStats {
 	defer c.mu.RUnlock()
 
 	return ConnectionStats{
-		ConnectedAt:   c.connectedAt,
-		LastActivity:  c.lastActivity,
-		BytesRead:     c.bytesRead,
-		BytesWritten:  c.bytesWritten,
-		Duration:      time.Since(c.connectedAt),
-		LocalAddr:     c.LocalAddr().String(),
-		RemoteAddr:    c.RemoteAddr().String(),
-		Closed:        c.closed,
+		ConnectedAt:  c.connectedAt,
+		LastActivity: c.lastActivity,
+		BytesRead:    c.bytesRead,
+		BytesWritten: c.bytesWritten,
+		Duration:     time.Since(c.connectedAt),
+		LocalAddr:    c.LocalAddr().String(),
+		RemoteAddr:   c.RemoteAddr().String(),
+		Closed:       c.closed,
 	}
 }
 
 // ConnectionStats holds connection statistics
 type ConnectionStats struct {
-	ConnectedAt   time.Time     `json:"connected_at"`
-	LastActivity  time.Time     `json:"last_activity"`
-	BytesRead     int64         `json:"bytes_read"`
-	BytesWritten  int64         `json:"bytes_written"`
-	Duration      time.Duration `json:"duration"`
-	LocalAddr     string        `json:"local_addr"`
-	RemoteAddr    string        `json:"remote_addr"`
-	Closed        bool          `json:"closed"`
+	ConnectedAt  time.Time     `json:"connected_at"`
+	LastActivity time.Time     `json:"last_activity"`
+	BytesRead    int64         `json:"bytes_read"`
+	BytesWritten int64         `json:"bytes_written"`
+	Duration     time.Duration `json:"duration"`
+	LocalAddr    string        `json:"local_addr"`
+	RemoteAddr   string        `json:"remote_addr"`
+	Closed       bool          `json:"closed"`
 }
 
 // Dialer provides enhanced dialing capabilities

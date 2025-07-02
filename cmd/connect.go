@@ -15,37 +15,37 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/ibrahmsql/gocat/internal/logger"
+	"github.com/spf13/cobra"
 	"golang.org/x/net/proxy"
 )
 
 var (
-	shellPath          string
-	timeout            time.Duration
-	retryCount         int
-	keepAlive          bool
-	proxyURL           string
-	useSSL             bool
-	verifyCert         bool
-	caCertFile         string
-	useUDP             bool
-	forceIPv6          bool
-	forceIPv4          bool
+	shellPath  string
+	timeout    time.Duration
+	retryCount int
+	keepAlive  bool
+	proxyURL   string
+	useSSL     bool
+	verifyCert bool
+	caCertFile string
+	useUDP     bool
+	forceIPv6  bool
+	forceIPv4  bool
 	// Global flags for connect
-	sendOnly           bool
-	recvOnly           bool
-	outputFile         string
-	hexDumpFile        string
-	appendOutput       bool
-	noShutdown         bool
+	sendOnly     bool
+	recvOnly     bool
+	outputFile   string
+	hexDumpFile  string
+	appendOutput bool
+	noShutdown   bool
 	// Protocol flags
-	telnetMode         bool
-	crlfMode           bool
-	zeroIOMode         bool
+	telnetMode bool
+	crlfMode   bool
+	zeroIOMode bool
 	// Source flags
-	sourceAddress      string
-	sourcePort         int
+	sourceAddress string
+	sourcePort    int
 )
 
 var connectCmd = &cobra.Command{
@@ -175,7 +175,7 @@ func runConnect(cmd *cobra.Command, args []string) {
 
 func connect(host, port, shell string) error {
 	address := net.JoinHostPort(host, port)
-	
+
 	// Determine network type
 	network := "tcp"
 	if useUDP {
@@ -210,7 +210,7 @@ func connect(host, port, shell string) error {
 		if err == nil {
 			break
 		}
-		
+
 		if attempt == retryCount {
 			return fmt.Errorf("failed to connect to %s after %d attempts: %v", address, retryCount+1, err)
 		}
@@ -230,8 +230,8 @@ func connect(host, port, shell string) error {
 				logger.Warn("Failed to enable keep-alive: %v", err)
 			} else {
 				if err := tcpConn.SetKeepAlivePeriod(30 * time.Second); err != nil {
-				logger.Warn("Failed to set keep-alive period: %v", err)
-			}
+					logger.Warn("Failed to set keep-alive period: %v", err)
+				}
 			}
 		}
 	}
@@ -370,18 +370,18 @@ func dialWithTLS(network, address string, dialer *net.Dialer) (net.Conn, error) 
 // parseCipherSuites converts cipher suite names to IDs
 func parseCipherSuites(ciphers string) []uint16 {
 	cipherMap := map[string]uint16{
-		"TLS_RSA_WITH_AES_128_CBC_SHA":                tls.TLS_RSA_WITH_AES_128_CBC_SHA,
-		"TLS_RSA_WITH_AES_256_CBC_SHA":                tls.TLS_RSA_WITH_AES_256_CBC_SHA,
-		"TLS_RSA_WITH_AES_128_GCM_SHA256":             tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
-		"TLS_RSA_WITH_AES_256_GCM_SHA384":             tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
-		"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA":          tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-		"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA":          tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-		"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256":       tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-		"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384":       tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-		"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA":        tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-		"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA":        tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-		"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256":     tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-		"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384":     tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+		"TLS_RSA_WITH_AES_128_CBC_SHA":            tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+		"TLS_RSA_WITH_AES_256_CBC_SHA":            tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+		"TLS_RSA_WITH_AES_128_GCM_SHA256":         tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+		"TLS_RSA_WITH_AES_256_GCM_SHA384":         tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+		"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA":      tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+		"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA":      tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+		"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256":   tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+		"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384":   tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA":    tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+		"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA":    tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+		"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256": tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+		"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384": tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 	}
 
 	cipherNames := strings.Split(ciphers, ":")

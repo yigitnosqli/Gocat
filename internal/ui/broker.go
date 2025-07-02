@@ -11,12 +11,12 @@ import (
 
 // BrokerConnection represents a broker connection
 type BrokerConnection struct {
-	ID       string
-	ClientA  string
-	ClientB  string
-	Status   string
-	Started  time.Time
-	Bytes    int64
+	ID      string
+	ClientA string
+	ClientB string
+	Status  string
+	Started time.Time
+	Bytes   int64
 }
 
 // updateBroker handles broker mode input

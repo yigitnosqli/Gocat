@@ -15,9 +15,9 @@ var (
 	ErrorColor     = lipgloss.Color("#FF4757") // Dark Red
 
 	// Neutral colors
-	TextColor      = lipgloss.Color("#FAFAFA") // Light
-	MutedColor     = lipgloss.Color("#8B949E") // Gray
-	BorderColor    = lipgloss.Color("#30363D") // Dark Gray
+	TextColor       = lipgloss.Color("#FAFAFA") // Light
+	MutedColor      = lipgloss.Color("#8B949E") // Gray
+	BorderColor     = lipgloss.Color("#30363D") // Dark Gray
 	BackgroundColor = lipgloss.Color("#0D1117") // Dark Background
 )
 
@@ -25,82 +25,82 @@ var (
 var (
 	// Title style
 	TitleStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(PrimaryColor).
-		PaddingLeft(2).
-		PaddingRight(2)
+			Bold(true).
+			Foreground(PrimaryColor).
+			PaddingLeft(2).
+			PaddingRight(2)
 
 	// Header style
 	HeaderStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(TextColor).
-		Background(PrimaryColor).
-		Padding(0, 2).
-		MarginBottom(1)
+			Bold(true).
+			Foreground(TextColor).
+			Background(PrimaryColor).
+			Padding(0, 2).
+			MarginBottom(1)
 
 	// Box style
 	BoxStyle = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(BorderColor).
-		Padding(1, 2).
-		Margin(1)
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(BorderColor).
+			Padding(1, 2).
+			Margin(1)
 
 	// Success style
 	SuccessStyle = lipgloss.NewStyle().
-		Foreground(InfoColor).
-		Bold(true)
+			Foreground(InfoColor).
+			Bold(true)
 
 	// Error style
 	ErrorStyle = lipgloss.NewStyle().
-		Foreground(ErrorColor).
-		Bold(true)
+			Foreground(ErrorColor).
+			Bold(true)
 
 	// Warning style
 	WarningStyle = lipgloss.NewStyle().
-		Foreground(WarningColor).
-		Bold(true)
+			Foreground(WarningColor).
+			Bold(true)
 
 	// Info style
 	InfoStyle = lipgloss.NewStyle().
-		Foreground(InfoColor)
+			Foreground(InfoColor)
 
 	// Muted style
 	MutedStyle = lipgloss.NewStyle().
-		Foreground(MutedColor)
+			Foreground(MutedColor)
 
 	// Highlight style
 	HighlightStyle = lipgloss.NewStyle().
-		Background(PrimaryColor).
-		Foreground(TextColor).
-		Bold(true)
+			Background(PrimaryColor).
+			Foreground(TextColor).
+			Bold(true)
 
 	// Button style
 	ButtonStyle = lipgloss.NewStyle().
-		Foreground(TextColor).
-		Background(PrimaryColor).
-		Padding(0, 2).
-		Margin(0, 1).
-		Border(lipgloss.RoundedBorder())
+			Foreground(TextColor).
+			Background(PrimaryColor).
+			Padding(0, 2).
+			Margin(0, 1).
+			Border(lipgloss.RoundedBorder())
 
 	// Active button style
 	ActiveButtonStyle = lipgloss.NewStyle().
-		Foreground(PrimaryColor).
-		Background(TextColor).
-		Padding(0, 2).
-		Margin(0, 1).
-		Border(lipgloss.RoundedBorder()).
-		Bold(true)
+				Foreground(PrimaryColor).
+				Background(TextColor).
+				Padding(0, 2).
+				Margin(0, 1).
+				Border(lipgloss.RoundedBorder()).
+				Bold(true)
 
 	// Status bar style
 	StatusBarStyle = lipgloss.NewStyle().
-		Foreground(TextColor).
-		Background(BorderColor).
-		Padding(0, 1)
+			Foreground(TextColor).
+			Background(BorderColor).
+			Padding(0, 1)
 
 	// Help style
 	HelpStyle = lipgloss.NewStyle().
-		Foreground(MutedColor).
-		MarginTop(1)
+			Foreground(MutedColor).
+			MarginTop(1)
 )
 
 // Adaptive styles for different terminal sizes
@@ -111,8 +111,6 @@ func AdaptiveBoxStyle(width, height int) lipgloss.Style {
 func AdaptiveHeaderStyle(width int) lipgloss.Style {
 	return HeaderStyle.Width(width - 2)
 }
-
-
 
 // Status indicators
 func StatusConnected() string {

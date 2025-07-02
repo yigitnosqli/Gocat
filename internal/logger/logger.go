@@ -82,22 +82,22 @@ var currentTheme = defaultTheme
 
 // LogEntry represents a structured log entry
 type LogEntry struct {
-	Timestamp time.Time            `json:"timestamp"`
-	Level     string               `json:"level"`
-	Message   string               `json:"message"`
+	Timestamp time.Time              `json:"timestamp"`
+	Level     string                 `json:"level"`
+	Message   string                 `json:"message"`
 	Fields    map[string]interface{} `json:"fields,omitempty"`
-	Caller    string               `json:"caller,omitempty"`
+	Caller    string                 `json:"caller,omitempty"`
 }
 
 // Logger represents a structured logger with color support
 type Logger struct {
-	level      LogLevel
-	theme      *ColorTheme
-	output     io.Writer
+	level       LogLevel
+	theme       *ColorTheme
+	output      io.Writer
 	errorOutput io.Writer
-	mu         sync.RWMutex
-	structured bool
-	showCaller bool
+	mu          sync.RWMutex
+	structured  bool
+	showCaller  bool
 }
 
 // NewLogger creates a new logger with the specified level

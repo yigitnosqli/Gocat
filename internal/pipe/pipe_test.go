@@ -134,10 +134,10 @@ func TestPipeWithBuffer(t *testing.T) {
 					}
 					done <- true
 				}()
-			if err := PipeWithBuffer(dst, src, tt.bufferSize); err != nil {
-				t.Logf("PipeWithBuffer error: %v", err)
-			}
-		}()
+				if err := PipeWithBuffer(dst, src, tt.bufferSize); err != nil {
+					t.Logf("PipeWithBuffer error: %v", err)
+				}
+			}()
 
 			// Wait for completion or timeout
 			select {

@@ -51,12 +51,12 @@ func (m Model) viewMenu() string {
 
 	// Add title
 	title := TitleStyle.Render("🐱 GoCat")
-	content.WriteString(lipgloss.NewStyle().Width(m.width-6).Align(lipgloss.Center).Render(title))
+	content.WriteString(lipgloss.NewStyle().Width(m.width - 6).Align(lipgloss.Center).Render(title))
 	content.WriteString("\n\n")
 
 	// Add description
 	desc := MutedStyle.Render("A powerful network utility tool with beautiful terminal interface")
-	content.WriteString(lipgloss.NewStyle().Width(m.width-6).Align(lipgloss.Center).Render(desc))
+	content.WriteString(lipgloss.NewStyle().Width(m.width - 6).Align(lipgloss.Center).Render(desc))
 	content.WriteString("\n\n")
 
 	// Add menu items
@@ -69,7 +69,7 @@ func (m Model) viewMenu() string {
 		}
 
 		menuItem := style.Render(item)
-		content.WriteString(lipgloss.NewStyle().Width(m.width-6).Align(lipgloss.Center).Render(menuItem))
+		content.WriteString(lipgloss.NewStyle().Width(m.width - 6).Align(lipgloss.Center).Render(menuItem))
 		content.WriteString("\n")
 	}
 
@@ -79,7 +79,7 @@ func (m Model) viewMenu() string {
 	// Add feature highlights
 	highlights := []string{
 		"✨ Beautiful terminal UI with colors",
-		"🚀 Fast and efficient networking", 
+		"🚀 Fast and efficient networking",
 		"🔧 Multiple connection modes",
 		"📡 Real-time communication",
 		"🔍 Network scanning capabilities",

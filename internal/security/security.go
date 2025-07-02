@@ -155,7 +155,7 @@ func (v *InputValidator) SanitizeCommand(command string) (string, error) {
 
 // RateLimiter provides rate limiting functionality
 type RateLimiter struct {
-	requests map[string][]time.Time
+	requests    map[string][]time.Time
 	maxRequests int
 	window      time.Duration
 }

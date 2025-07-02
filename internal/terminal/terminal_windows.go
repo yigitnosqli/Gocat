@@ -20,8 +20,8 @@ type TerminalState struct {
 const (
 	ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
 	ENABLE_PROCESSED_OUTPUT            = 0x0001
-	ENABLE_WRAP_AT_EOL_OUTPUT         = 0x0002
-	DISABLE_NEWLINE_AUTO_RETURN       = 0x0008
+	ENABLE_WRAP_AT_EOL_OUTPUT          = 0x0002
+	DISABLE_NEWLINE_AUTO_RETURN        = 0x0008
 )
 
 // GetState gets the current terminal state (Windows)
@@ -122,8 +122,8 @@ type coord struct {
 }
 
 var (
-	kernel32                        = syscall.NewLazyDLL("kernel32.dll")
-	procGetConsoleMode              = kernel32.NewProc("GetConsoleMode")
-	procSetConsoleMode              = kernel32.NewProc("SetConsoleMode")
-	procSetConsoleScreenBufferSize  = kernel32.NewProc("SetConsoleScreenBufferSize")
+	kernel32                       = syscall.NewLazyDLL("kernel32.dll")
+	procGetConsoleMode             = kernel32.NewProc("GetConsoleMode")
+	procSetConsoleMode             = kernel32.NewProc("SetConsoleMode")
+	procSetConsoleScreenBufferSize = kernel32.NewProc("SetConsoleScreenBufferSize")
 )

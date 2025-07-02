@@ -13,28 +13,28 @@ import (
 	"time"
 
 	"github.com/creack/pty"
-	"github.com/spf13/cobra"
 	"github.com/ibrahmsql/gocat/internal/logger"
 	"github.com/ibrahmsql/gocat/internal/readline"
 	"github.com/ibrahmsql/gocat/internal/signals"
 	"github.com/ibrahmsql/gocat/internal/terminal"
+	"github.com/spf13/cobra"
 )
 
 var (
-	interactive        bool
-	blockSignals       bool
-	localOnly          bool
-	execCommand        string
-	bindAddress        string
-	listenKeepAlive    bool
-	maxConnections     int
-	listenTimeout      time.Duration
-	listenUseUDP       bool
-	listenForceIPv6    bool
-	listenForceIPv4    bool
-	listenUseSSL       bool
-	sslKeyFile         string
-	sslCertFile        string
+	interactive     bool
+	blockSignals    bool
+	localOnly       bool
+	execCommand     string
+	bindAddress     string
+	listenKeepAlive bool
+	maxConnections  int
+	listenTimeout   time.Duration
+	listenUseUDP    bool
+	listenForceIPv6 bool
+	listenForceIPv4 bool
+	listenUseSSL    bool
+	sslKeyFile      string
+	sslCertFile     string
 	// Global flags for listen
 	listenSendOnly     bool
 	listenRecvOnly     bool
@@ -43,14 +43,14 @@ var (
 	listenAppendOutput bool
 	listenNoShutdown   bool
 	// Access control flags
-	allowList          []string
-	denyList           []string
-	allowFile          string
-	denyFile           string
+	allowList []string
+	denyList  []string
+	allowFile string
+	denyFile  string
 	// Protocol flags for listen
-	listenTelnetMode   bool
-	listenCRLFMode     bool
-	listenZeroIOMode   bool
+	listenTelnetMode bool
+	listenCRLFMode   bool
+	listenZeroIOMode bool
 )
 
 var listenCmd = &cobra.Command{
@@ -176,7 +176,7 @@ func runListen(cmd *cobra.Command, args []string) {
 
 func listen(host, port string) error {
 	address := net.JoinHostPort(host, port)
-	
+
 	// Determine network type
 	network := "tcp"
 	if listenUseUDP {
@@ -283,7 +283,7 @@ func handleUDPListener(network, address string) error {
 	}()
 
 	theme := logger.GetCurrentTheme()
-		if _, err := theme.Success.Printf("Listening on %s (UDP)\n", address); err != nil {
+	if _, err := theme.Success.Printf("Listening on %s (UDP)\n", address); err != nil {
 		logger.Error("Error printing success message: %v", err)
 	}
 
@@ -322,8 +322,8 @@ func handleConnection(conn net.Conn) {
 				logger.Warn("Failed to enable keep-alive: %v", err)
 			} else {
 				if err := tcpConn.SetKeepAlivePeriod(30 * time.Second); err != nil {
-				logger.Warn("Failed to set keep-alive period: %v", err)
-			}
+					logger.Warn("Failed to set keep-alive period: %v", err)
+				}
 			}
 		}
 	}
@@ -382,10 +382,10 @@ func handleInteractive(conn net.Conn) error {
 	if runtime.GOOS != "windows" {
 		if termState, err := terminal.SetupTerminal(); err == nil {
 			defer func() {
-			if err := termState.Restore(); err != nil {
-				logger.Error("Error restoring terminal state: %v", err)
-			}
-		}()
+				if err := termState.Restore(); err != nil {
+					logger.Error("Error restoring terminal state: %v", err)
+				}
+			}()
 		}
 	}
 

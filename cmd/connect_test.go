@@ -24,9 +24,9 @@ func TestDialWithOptions(t *testing.T) {
 
 func TestHostPortParsing(t *testing.T) {
 	tests := []struct {
-		args     []string
-		expHost  string
-		expPort  string
+		args    []string
+		expHost string
+		expPort string
 	}{
 		{[]string{"8080"}, "127.0.0.1", "8080"},
 		{[]string{"192.168.1.1", "9090"}, "192.168.1.1", "9090"},

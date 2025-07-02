@@ -9,11 +9,11 @@ import (
 
 // ConnectState represents the state of the connect mode
 type ConnectState struct {
-	host     string
-	port     string
-	protocol string
-	focused  int // 0: host, 1: port, 2: protocol
-	protocols []string
+	host          string
+	port          string
+	protocol      string
+	focused       int // 0: host, 1: port, 2: protocol
+	protocols     []string
 	protocolIndex int
 }
 
@@ -140,8 +140,8 @@ func (m Model) renderConnectionForm() string {
 		}
 	}
 
-	protocolRow := lipgloss.JoinHorizontal(lipgloss.Left, 
-		protocolLabel, "  ", 
+	protocolRow := lipgloss.JoinHorizontal(lipgloss.Left,
+		protocolLabel, "  ",
 		lipgloss.JoinHorizontal(lipgloss.Left, protocolButtons...),
 	)
 	form.WriteString(protocolRow)

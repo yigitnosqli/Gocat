@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/ibrahmsql/gocat/internal/logger"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -34,7 +34,7 @@ func init() {
 
 func runBroker(cmd *cobra.Command, args []string) {
 	brokerPort = args[0]
-	
+
 	// Override with global flags if set
 	if globalMaxConns, _ := cmd.Root().PersistentFlags().GetInt("max-conns"); globalMaxConns > 0 {
 		brokerMaxConns = globalMaxConns

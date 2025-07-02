@@ -22,20 +22,20 @@ const (
 
 // Model represents the main application state
 type Model struct {
-	mode        AppMode
-	width       int
-	height      int
-	menuItems   []string
-	selected    int
-	input       string
-	cursor      int
-	messages    []string
-	status      string
-	connected   bool
-	listening   bool
-	showHelp    bool
-	errorMsg    string
-	successMsg  string
+	mode       AppMode
+	width      int
+	height     int
+	menuItems  []string
+	selected   int
+	input      string
+	cursor     int
+	messages   []string
+	status     string
+	connected  bool
+	listening  bool
+	showHelp   bool
+	errorMsg   string
+	successMsg string
 }
 
 // NewModel creates a new model with default values
@@ -44,7 +44,7 @@ func NewModel() Model {
 		mode: ModeMenu,
 		menuItems: []string{
 			"🔗 Connect",
-			"👂 Listen", 
+			"👂 Listen",
 			"💬 Chat",
 			"🔄 Broker",
 			"🔍 Scan",
@@ -185,8 +185,6 @@ func (m *Model) clearMessages() {
 	m.errorMsg = ""
 	m.successMsg = ""
 }
-
-
 
 func (m *Model) setSuccess(msg string) {
 	m.clearMessages()

@@ -14,14 +14,14 @@ import (
 )
 
 var (
-	scanTimeout    time.Duration
-	concurrency    int
-	portRange      string
-	verboseOutput  bool
-	onlyOpen       bool
-	useUDPScan     bool
-	forceIPv6Scan  bool
-	forceIPv4Scan  bool
+	scanTimeout   time.Duration
+	concurrency   int
+	portRange     string
+	verboseOutput bool
+	onlyOpen      bool
+	useUDPScan    bool
+	forceIPv6Scan bool
+	forceIPv4Scan bool
 )
 
 // scanCmd represents the scan command

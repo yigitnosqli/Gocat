@@ -11,15 +11,15 @@ import (
 type ErrorType string
 
 const (
-	ErrorTypeNetwork     ErrorType = "network"
-	ErrorTypeValidation  ErrorType = "validation"
-	ErrorTypeSecurity    ErrorType = "security"
-	ErrorTypeFileSystem  ErrorType = "filesystem"
-	ErrorTypeTimeout     ErrorType = "timeout"
-	ErrorTypePermission  ErrorType = "permission"
-	ErrorTypeConfig      ErrorType = "config"
-	ErrorTypeInternal    ErrorType = "internal"
-	ErrorTypeUser        ErrorType = "user"
+	ErrorTypeNetwork    ErrorType = "network"
+	ErrorTypeValidation ErrorType = "validation"
+	ErrorTypeSecurity   ErrorType = "security"
+	ErrorTypeFileSystem ErrorType = "filesystem"
+	ErrorTypeTimeout    ErrorType = "timeout"
+	ErrorTypePermission ErrorType = "permission"
+	ErrorTypeConfig     ErrorType = "config"
+	ErrorTypeInternal   ErrorType = "internal"
+	ErrorTypeUser       ErrorType = "user"
 )
 
 // Severity represents error severity levels
@@ -34,17 +34,17 @@ const (
 
 // GoCatError represents a structured error with additional context
 type GoCatError struct {
-	Type        ErrorType              `json:"type"`
-	Severity    Severity               `json:"severity"`
-	Message     string                 `json:"message"`
-	Code        string                 `json:"code"`
-	Cause       error                  `json:"cause,omitempty"`
-	Context     map[string]interface{} `json:"context,omitempty"`
-	Timestamp   time.Time              `json:"timestamp"`
-	StackTrace  []string               `json:"stack_trace,omitempty"`
-	Suggestion  string                 `json:"suggestion,omitempty"`
-	Retryable   bool                   `json:"retryable"`
-	UserFriendly string                `json:"user_friendly,omitempty"`
+	Type         ErrorType              `json:"type"`
+	Severity     Severity               `json:"severity"`
+	Message      string                 `json:"message"`
+	Code         string                 `json:"code"`
+	Cause        error                  `json:"cause,omitempty"`
+	Context      map[string]interface{} `json:"context,omitempty"`
+	Timestamp    time.Time              `json:"timestamp"`
+	StackTrace   []string               `json:"stack_trace,omitempty"`
+	Suggestion   string                 `json:"suggestion,omitempty"`
+	Retryable    bool                   `json:"retryable"`
+	UserFriendly string                 `json:"user_friendly,omitempty"`
 }
 
 // Error implements the error interface
@@ -190,35 +190,35 @@ var (
 	ErrDNSResolutionFailed = NetworkError("NET006", "DNS resolution failed")
 
 	// Validation errors
-	ErrInvalidHostname     = ValidationError("VAL001", "Invalid hostname")
-	ErrInvalidPort         = ValidationError("VAL002", "Invalid port number")
-	ErrInvalidProtocol     = ValidationError("VAL003", "Invalid protocol")
-	ErrInvalidAddress      = ValidationError("VAL004", "Invalid address format")
-	ErrInvalidInput        = ValidationError("VAL005", "Invalid input")
+	ErrInvalidHostname = ValidationError("VAL001", "Invalid hostname")
+	ErrInvalidPort     = ValidationError("VAL002", "Invalid port number")
+	ErrInvalidProtocol = ValidationError("VAL003", "Invalid protocol")
+	ErrInvalidAddress  = ValidationError("VAL004", "Invalid address format")
+	ErrInvalidInput    = ValidationError("VAL005", "Invalid input")
 
 	// Security errors
-	ErrUnauthorized        = SecurityError("SEC001", "Unauthorized access")
-	ErrForbidden           = SecurityError("SEC002", "Forbidden operation")
-	ErrInsecureConnection  = SecurityError("SEC003", "Insecure connection")
-	ErrCertificateInvalid  = SecurityError("SEC004", "Invalid certificate")
+	ErrUnauthorized         = SecurityError("SEC001", "Unauthorized access")
+	ErrForbidden            = SecurityError("SEC002", "Forbidden operation")
+	ErrInsecureConnection   = SecurityError("SEC003", "Insecure connection")
+	ErrCertificateInvalid   = SecurityError("SEC004", "Invalid certificate")
 	ErrAuthenticationFailed = SecurityError("SEC005", "Authentication failed")
 
 	// File system errors
-	ErrFileNotFound        = FileSystemError("FS001", "File not found")
-	ErrFilePermission      = PermissionError("FS002", "File permission denied")
-	ErrDirectoryNotFound   = FileSystemError("FS003", "Directory not found")
-	ErrDiskFull            = FileSystemError("FS004", "Disk full")
-	ErrFileCorrupted       = FileSystemError("FS005", "File corrupted")
+	ErrFileNotFound      = FileSystemError("FS001", "File not found")
+	ErrFilePermission    = PermissionError("FS002", "File permission denied")
+	ErrDirectoryNotFound = FileSystemError("FS003", "Directory not found")
+	ErrDiskFull          = FileSystemError("FS004", "Disk full")
+	ErrFileCorrupted     = FileSystemError("FS005", "File corrupted")
 
 	// Configuration errors
-	ErrConfigNotFound      = ConfigError("CFG001", "Configuration file not found")
-	ErrConfigInvalid       = ConfigError("CFG002", "Invalid configuration")
-	ErrConfigPermission    = PermissionError("CFG003", "Configuration file permission denied")
+	ErrConfigNotFound   = ConfigError("CFG001", "Configuration file not found")
+	ErrConfigInvalid    = ConfigError("CFG002", "Invalid configuration")
+	ErrConfigPermission = PermissionError("CFG003", "Configuration file permission denied")
 
 	// Internal errors
-	ErrInternalFailure     = InternalError("INT001", "Internal failure")
-	ErrMemoryAllocation    = InternalError("INT002", "Memory allocation failed")
-	ErrResourceExhausted   = InternalError("INT003", "Resource exhausted")
+	ErrInternalFailure   = InternalError("INT001", "Internal failure")
+	ErrMemoryAllocation  = InternalError("INT002", "Memory allocation failed")
+	ErrResourceExhausted = InternalError("INT003", "Resource exhausted")
 )
 
 // WrapError wraps an existing error with additional context

@@ -19,13 +19,13 @@ type ScanResult struct {
 
 // ScanState represents the state of the scan mode
 type ScanState struct {
-	targetHost  string
-	portRange   string
-	scanType    string
-	results     []ScanResult
-	scanning    bool
-	progress    int
-	totalPorts  int
+	targetHost string
+	portRange  string
+	scanType   string
+	results    []ScanResult
+	scanning   bool
+	progress   int
+	totalPorts int
 }
 
 // updateScan handles scan mode input
@@ -244,7 +244,7 @@ func (m Model) renderScanResults() string {
 		results.WriteString("\n")
 
 		// Results data
-	for _, result := range sampleResults {
+		for _, result := range sampleResults {
 			var statusStyle lipgloss.Style
 			switch result.Status {
 			case "Open":

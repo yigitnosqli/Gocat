@@ -220,9 +220,9 @@ func TestWrapError(t *testing.T) {
 
 func TestIsRetryable(t *testing.T) {
 	tests := []struct {
-		name      string
-		err       error
-		expected  bool
+		name     string
+		err      error
+		expected bool
 	}{
 		{
 			name:     "retryable GoCatError",
