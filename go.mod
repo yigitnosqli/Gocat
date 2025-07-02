@@ -1,8 +1,6 @@
-module github.com/ibrahmsql/gocat
+module github.com/ibrahmsql/Gocat
 
-go 1.23.0
-
-toolchain go1.24.4
+go 1.23
 
 require (
 	github.com/charmbracelet/bubbletea v1.3.5

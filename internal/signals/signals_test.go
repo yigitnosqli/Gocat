@@ -2,6 +2,7 @@ package signals
 
 import (
 	"os"
+	"runtime"
 	"sync"
 	"syscall"
 	"testing"
@@ -9,6 +10,10 @@ import (
 )
 
 func TestBlockExitSignals(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping signal test on Windows - signal handling differs")
+	}
+	
 	// Test that BlockExitSignals doesn't panic
 	BlockExitSignals()
 
@@ -34,6 +39,10 @@ func TestBlockExitSignals(t *testing.T) {
 }
 
 func TestSetupSignalHandler(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping signal test on Windows - signal handling differs")
+	}
+	
 	var handlerCalled bool
 	var mu sync.Mutex
 
@@ -75,6 +84,10 @@ func TestSetupSignalHandler(t *testing.T) {
 }
 
 func TestSetupSignalHandlerSIGINT(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping signal test on Windows - signal handling differs")
+	}
+	
 	var handlerCalled bool
 	var mu sync.Mutex
 
@@ -115,6 +128,10 @@ func TestSetupSignalHandlerSIGINT(t *testing.T) {
 }
 
 func TestMultipleSignalHandlers(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping signal test on Windows - signal handling differs")
+	}
+	
 	var handler1Called, handler2Called bool
 	var mu sync.Mutex
 
@@ -187,6 +204,10 @@ func TestSignalHandlerWithPanic(t *testing.T) {
 }
 
 func TestBlockExitSignalsMultipleCalls(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping signal test on Windows - signal handling differs")
+	}
+	
 	// Test that calling BlockExitSignals multiple times doesn't cause issues
 	BlockExitSignals()
 	BlockExitSignals()
@@ -234,6 +255,10 @@ func BenchmarkSetupSignalHandler(b *testing.B) {
 
 // Test helper function to check if signal handling works
 func TestSignalHandlerExecution(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping signal test on Windows - signal handling differs")
+	}
+	
 	var executed bool
 	var mu sync.Mutex
 
