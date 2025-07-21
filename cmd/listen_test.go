@@ -93,14 +93,6 @@ func TestConnectionTimeout(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping timeout test in short mode")
 	}
-<<<<<<< Updated upstream
-
-	// Save original value
-	origListenTimeout := listenTimeout
-	testTimeout := 100 * time.Millisecond
-	listenTimeout = testTimeout
-=======
->>>>>>> Stashed changes
 
 	// Use local timeout variable to avoid race conditions
 	testTimeout := 50 * time.Millisecond
@@ -116,13 +108,9 @@ func TestConnectionTimeout(t *testing.T) {
 		}
 	}()
 
-<<<<<<< Updated upstream
-	done := make(chan error, 1)
-=======
 	done := make(chan bool, 1)
 	result := make(chan error, 1)
 
->>>>>>> Stashed changes
 	go func() {
 		defer func() {
 			select {
@@ -133,14 +121,10 @@ func TestConnectionTimeout(t *testing.T) {
 
 		conn, acceptErr := listener.Accept()
 		if acceptErr != nil {
-<<<<<<< Updated upstream
-			done <- acceptErr
-=======
 			select {
 			case result <- acceptErr:
 			case <-done:
 			}
->>>>>>> Stashed changes
 			return
 		}
 		defer func() {
@@ -150,19 +134,11 @@ func TestConnectionTimeout(t *testing.T) {
 		}()
 
 		// Set deadline and test timeout
-<<<<<<< Updated upstream
-		if testTimeout > 0 {
-			if deadlineErr := conn.SetDeadline(time.Now().Add(testTimeout)); deadlineErr != nil {
-				t.Logf("Error setting deadline: %v", deadlineErr)
-				done <- deadlineErr
-				return
-=======
 		if deadlineErr := conn.SetDeadline(time.Now().Add(testTimeout)); deadlineErr != nil {
 			t.Logf("Error setting deadline: %v", deadlineErr)
 			select {
 			case result <- deadlineErr:
 			case <-done:
->>>>>>> Stashed changes
 			}
 			return
 		}
@@ -170,14 +146,10 @@ func TestConnectionTimeout(t *testing.T) {
 		// Try to read (should timeout)
 		buffer := make([]byte, 1024)
 		_, readErr := conn.Read(buffer)
-<<<<<<< Updated upstream
-		done <- readErr
-=======
 		select {
 		case result <- readErr:
 		case <-done:
 		}
->>>>>>> Stashed changes
 	}()
 
 	addr := listener.Addr().(*net.TCPAddr)
@@ -193,15 +165,6 @@ func TestConnectionTimeout(t *testing.T) {
 
 	// Wait for the timeout test to complete
 	select {
-<<<<<<< Updated upstream
-	case err := <-done:
-		if err == nil {
-			t.Error("Expected timeout error")
-		}
-	case <-time.After(300 * time.Millisecond):
-		t.Log("Test completed with timeout")
-	}
-=======
 	case err := <-result:
 		if err == nil {
 			t.Error("Expected timeout error")
@@ -215,7 +178,6 @@ func TestConnectionTimeout(t *testing.T) {
 	case done <- true:
 	default:
 	}
->>>>>>> Stashed changes
 }
 
 func BenchmarkListen(b *testing.B) {
