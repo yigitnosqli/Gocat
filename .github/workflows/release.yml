@@ -171,12 +171,21 @@ jobs:
         "
         
         # Build with optimizations
-        go build \
-          -trimpath \
-          -buildmode=pie \
-          -ldflags="${LDFLAGS}" \
-          -o "${{ matrix.artifact }}" \
-          .
+        # Note: -buildmode=pie causes issues with ARM when CGO_ENABLED=0
+        if [[ "${{ matrix.goarch }}" == "arm" || "${{ matrix.goarch }}" == "arm64" ]]; then
+          go build \
+            -trimpath \
+            -ldflags="${LDFLAGS}" \
+            -o "${{ matrix.artifact }}" \
+            .
+        else
+          go build \
+            -trimpath \
+            -buildmode=pie \
+            -ldflags="${LDFLAGS}" \
+            -o "${{ matrix.artifact }}" \
+            .
+        fi
         
         # Verify build
         ls -la "${{ matrix.artifact }}"
