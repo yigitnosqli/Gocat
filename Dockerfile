@@ -5,7 +5,7 @@
 FROM golang:1.21-alpine AS builder
 
 # 🏷️ Metadata
-LABEL maintainer="Ibrahim <ibrahim@example.com>"
+LABEL maintainer="Ibrahim <ibrahimsql@proton.me>"
 LABEL description="GoCat - Modern netcat alternative written in Go"
 LABEL version="1.0.0"
 
