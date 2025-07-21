@@ -1,8 +1,8 @@
 class Gocat < Formula
   desc "Modern netcat alternative written in Go with enhanced features"
   homepage "https://github.com/ibrahmsql/gocat"
-  url "https://github.com/ibrahmsql/Gocat/archive/refs/tags/v1.tar.gz"
-  sha256 "cf6fff52f13e98af3513e7158b6bd0e49aef729a95069afd1505b1cff7d38eda" 
+  url "https://github.com/ibrahmsql/gocat/archive/refs/tags/v#{version}.tar.gz"
+  sha256 "" # This will be updated when creating releases 
   license "MIT"
   head "https://github.com/ibrahmsql/gocat.git", branch: "main"
 
@@ -12,9 +12,11 @@ class Gocat < Formula
     # Build flags
     ldflags = %W[
       -s -w
-      -X main.version=#{version}
-      -X main.commit=homebrew-builds
-      -X main.date=#{Time.now.iso8601}
+      -X github.com/ibrahmsql/gocat/cmd.version=#{version}
+      -X github.com/ibrahmsql/gocat/cmd.buildTime=#{Time.now.iso8601}
+      -X github.com/ibrahmsql/gocat/cmd.gitCommit=homebrew-#{version}
+      -X github.com/ibrahmsql/gocat/cmd.gitBranch=main
+      -X github.com/ibrahmsql/gocat/cmd.builtBy=homebrew
     ]
 
     # Build the binary

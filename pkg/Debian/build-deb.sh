@@ -206,7 +206,7 @@ EOF
 create_man_page() {
     log_info "Creating manual page..."
     
-    cat > "$PACKAGE_DIR/usr/share/man/man1/gocat.1" << 'EOF'
+    cat > "$PACKAGE_DIR/usr/share/man/man1/gocat.1" << EOF
 .TH GOCAT 1 "$(date +"%B %Y")" "gocat" "User Commands"
 .SH NAME
 gocat \- modern netcat alternative written in Go

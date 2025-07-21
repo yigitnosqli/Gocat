@@ -2,12 +2,16 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
+	"time"
 
 	"github.com/ibrahmsql/gocat/internal/logger"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 // Build information variables
@@ -143,11 +147,25 @@ func init() {
 	rootCmd.PersistentFlags().Bool("zero-io", false, "Zero-I/O mode, report connection status only")
 	rootCmd.PersistentFlags().BoolP("crlf", "C", false, "Use CRLF for EOL sequence")
 
+	// Port Scanning flags
+	rootCmd.PersistentFlags().BoolP("scan", "z", false, "Zero-I/O mode (used for scanning)")
+	rootCmd.PersistentFlags().Duration("scan-delay", time.Second, "Delay between port scans")
+	rootCmd.PersistentFlags().Duration("scan-timeout", 3*time.Second, "Timeout for port scans")
+	rootCmd.PersistentFlags().String("port-range", "", "Port range to scan (e.g., 1-1000 or 80,443,8080)")
+	rootCmd.PersistentFlags().Bool("randomize-hosts", false, "Randomize target host order")
+	rootCmd.PersistentFlags().Bool("randomize-ports", false, "Randomize target port order")
+
 	// Hide advanced connection flags
 	rootCmd.PersistentFlags().MarkHidden("nodns")
 	rootCmd.PersistentFlags().MarkHidden("telnet")
 	rootCmd.PersistentFlags().MarkHidden("zero-io")
 	rootCmd.PersistentFlags().MarkHidden("crlf")
+
+	// Hide advanced scanning flags
+	rootCmd.PersistentFlags().MarkHidden("scan-delay")
+	rootCmd.PersistentFlags().MarkHidden("scan-timeout")
+	rootCmd.PersistentFlags().MarkHidden("randomize-hosts")
+	rootCmd.PersistentFlags().MarkHidden("randomize-ports")
 
 	// Timing and Connection Control
 	rootCmd.PersistentFlags().DurationP("wait", "w", 0, "Connect timeout")
@@ -155,13 +173,31 @@ func init() {
 	rootCmd.PersistentFlags().DurationP("idle-timeout", "i", 0, "Idle read/write timeout")
 	rootCmd.PersistentFlags().Duration("quit-timeout", 0, "After EOF on stdin, wait then quit")
 
+	// Buffer and Performance flags
+	rootCmd.PersistentFlags().Int("buffer-size", 8192, "Buffer size for network operations")
+	rootCmd.PersistentFlags().Int("send-buffer", 0, "Socket send buffer size")
+	rootCmd.PersistentFlags().Int("recv-buffer", 0, "Socket receive buffer size")
+	rootCmd.PersistentFlags().String("rate-limit", "", "Rate limit for data transfer (e.g., 1MB/s)")
+	rootCmd.PersistentFlags().Int("max-rate", 0, "Maximum transfer rate in bytes per second")
+	rootCmd.PersistentFlags().Bool("nodelay", false, "Disable Nagle's algorithm (TCP_NODELAY)")
+	rootCmd.PersistentFlags().Bool("keepalive", false, "Enable TCP keepalive")
+
 	// Hide advanced timing flags
 	rootCmd.PersistentFlags().MarkHidden("delay")
 	rootCmd.PersistentFlags().MarkHidden("idle-timeout")
 	rootCmd.PersistentFlags().MarkHidden("quit-timeout")
 
+	// Hide advanced buffer and performance flags
+	rootCmd.PersistentFlags().MarkHidden("buffer-size")
+	rootCmd.PersistentFlags().MarkHidden("send-buffer")
+	rootCmd.PersistentFlags().MarkHidden("recv-buffer")
+	rootCmd.PersistentFlags().MarkHidden("rate-limit")
+	rootCmd.PersistentFlags().MarkHidden("max-rate")
+	rootCmd.PersistentFlags().MarkHidden("nodelay")
+	rootCmd.PersistentFlags().MarkHidden("keepalive")
+
 	// Source and Routing
-	rootCmd.PersistentFlags().StringP("source-port", "p", "", "Specify source port to use")
+	rootCmd.PersistentFlags().IntP("source-port", "p", 0, "Specify source port to use")
 	rootCmd.PersistentFlags().StringP("source", "s", "", "Specify source address to use (doesn't affect -l)")
 	rootCmd.PersistentFlags().String("loose-routing", "", "Loose source routing hop points (8 max)")
 	rootCmd.PersistentFlags().Int("loose-pointer", 0, "Loose source routing hop pointer (4, 8, 12, ...)")
@@ -212,10 +248,10 @@ func init() {
 	rootCmd.PersistentFlags().MarkHidden("no-shutdown")
 
 	// Access Control
-	rootCmd.PersistentFlags().String("allow", "", "Allow only given hosts to connect to Ncat")
-	rootCmd.PersistentFlags().String("allowfile", "", "A file of hosts allowed to connect to Ncat")
-	rootCmd.PersistentFlags().String("deny", "", "Deny given hosts from connecting to Ncat")
-	rootCmd.PersistentFlags().String("denyfile", "", "A file of hosts denied from connecting to Ncat")
+	rootCmd.PersistentFlags().StringSlice("allow", nil, "Allow only given hosts to connect")
+	rootCmd.PersistentFlags().String("allowfile", "", "A file of hosts allowed to connect")
+	rootCmd.PersistentFlags().StringSlice("deny", nil, "Deny given hosts from connecting")
+	rootCmd.PersistentFlags().String("denyfile", "", "A file of hosts denied from connecting")
 
 	// Hide access control flags
 	rootCmd.PersistentFlags().MarkHidden("allow")
@@ -342,8 +378,64 @@ func initTheme() {
 
 // loadConfigFile loads configuration from a file
 func loadConfigFile(configPath string) error {
-	// TODO: Implement configuration file loading
-	// This would load YAML/JSON config and set appropriate flags
 	logger.Debug("Loading configuration from: %s", configPath)
+
+	// Check if file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return fmt.Errorf("configuration file not found: %s", configPath)
+	}
+
+	// Read file content
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	// Parse configuration based on file extension
+	var config map[string]interface{}
+	switch {
+	case strings.HasSuffix(configPath, ".yml") || strings.HasSuffix(configPath, ".yaml"):
+		if err := yaml.Unmarshal(content, &config); err != nil {
+			return fmt.Errorf("failed to parse YAML config: %w", err)
+		}
+	case strings.HasSuffix(configPath, ".json"):
+		if err := json.Unmarshal(content, &config); err != nil {
+			return fmt.Errorf("failed to parse JSON config: %w", err)
+		}
+	default:
+		return fmt.Errorf("unsupported config file format (supported: .yml, .yaml, .json)")
+	}
+
+	// Apply configuration values to flags
+	for key, value := range config {
+		if flag := rootCmd.PersistentFlags().Lookup(key); flag != nil {
+			if !flag.Changed { // Only set if not already set by command line
+				var stringValue string
+
+				// Handle different value types with type switch
+				switch v := value.(type) {
+				case []interface{}:
+					// Handle slice of interfaces (e.g., StringSlice flags)
+					var strSlice []string
+					for _, item := range v {
+						strSlice = append(strSlice, fmt.Sprintf("%v", item))
+					}
+					stringValue = strings.Join(strSlice, ",")
+				case []string:
+					// Handle slice of strings
+					stringValue = strings.Join(v, ",")
+				default:
+					// Handle primitive types
+					stringValue = fmt.Sprintf("%v", value)
+				}
+
+				if err := flag.Value.Set(stringValue); err != nil {
+					logger.Warn("Failed to set config value for %s: %v", key, err)
+				}
+			}
+		}
+	}
+
+	logger.Debug("Configuration loaded successfully from: %s", configPath)
 	return nil
 }

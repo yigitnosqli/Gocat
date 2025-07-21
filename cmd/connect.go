@@ -21,17 +21,17 @@ import (
 )
 
 var (
-	shellPath  string
-	timeout    time.Duration
-	retryCount int
-	keepAlive  bool
-	proxyURL   string
-	useSSL     bool
-	verifyCert bool
-	caCertFile string
-	useUDP     bool
-	forceIPv6  bool
-	forceIPv4  bool
+	shellPath        string
+	timeout          time.Duration
+	retryCount       int
+	connectKeepAlive bool
+	proxyURL         string
+	useSSL           bool
+	verifyCert       bool
+	caCertFile       string
+	useUDP           bool
+	forceIPv6        bool
+	forceIPv4        bool
 	// Global flags for connect
 	sendOnly     bool
 	recvOnly     bool
@@ -69,7 +69,7 @@ func init() {
 	connectCmd.Flags().StringVar(&shellPath, "shell", defaultShell, "Shell to use for command execution")
 	connectCmd.Flags().DurationVar(&timeout, "connect-timeout", 30*time.Second, "Connection timeout")
 	connectCmd.Flags().IntVar(&retryCount, "retry", 3, "Number of retry attempts")
-	connectCmd.Flags().BoolVar(&keepAlive, "connect-keep-alive", false, "Enable keep-alive")
+	connectCmd.Flags().BoolVar(&connectKeepAlive, "connect-keep-alive", false, "Enable keep-alive")
 	connectCmd.Flags().StringVar(&proxyURL, "connect-proxy", "", "Proxy URL (socks5:// or http://)")
 	connectCmd.Flags().BoolVar(&useSSL, "connect-ssl", false, "Use SSL/TLS")
 	connectCmd.Flags().BoolVar(&verifyCert, "verify-cert", false, "Verify SSL certificate")
@@ -224,7 +224,7 @@ func connect(host, port, shell string) error {
 	}()
 
 	// Configure keep-alive for TCP connections
-	if keepAlive && !useUDP {
+	if connectKeepAlive && !useUDP {
 		if tcpConn, ok := conn.(*net.TCPConn); ok {
 			if err := tcpConn.SetKeepAlive(true); err != nil {
 				logger.Warn("Failed to enable keep-alive: %v", err)

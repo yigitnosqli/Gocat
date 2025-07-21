@@ -2,6 +2,7 @@ package ui
 
 import (
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -22,20 +23,22 @@ const (
 
 // Model represents the main application state
 type Model struct {
-	mode       AppMode
-	width      int
-	height     int
-	menuItems  []string
-	selected   int
-	input      string
-	cursor     int
-	messages   []string
-	status     string
-	connected  bool
-	listening  bool
-	showHelp   bool
-	errorMsg   string
-	successMsg string
+	mode           AppMode
+	width          int
+	height         int
+	menuItems      []string
+	selected       int
+	input          string
+	cursor         int
+	messages       []string
+	status         string
+	connected      bool
+	listening      bool
+	showHelp       bool
+	errorMsg       string
+	successMsg     string
+	connectionInfo string
+	lastActivity   time.Time
 }
 
 // NewModel creates a new model with default values
@@ -51,9 +54,10 @@ func NewModel() Model {
 			"❓ Help",
 			"🚪 Exit",
 		},
-		selected: 0,
-		messages: []string{},
-		status:   "Ready",
+		selected:     0,
+		messages:     []string{},
+		status:       "Ready",
+		lastActivity: time.Now(),
 	}
 }
 

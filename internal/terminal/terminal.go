@@ -3,6 +3,7 @@
 package terminal
 
 import (
+	"fmt"
 	"os"
 	"syscall"
 	"unsafe"
@@ -31,6 +32,11 @@ func GetState(fd int) (*TerminalState, error) {
 // Restore restores the terminal to its previous state
 func (ts *TerminalState) Restore() error {
 	if ts.state == nil {
+		// Log warning but don't return error for nil state
+		if IsTerminal(ts.fd) {
+			// Only log if it's actually a terminal
+			fmt.Fprintf(os.Stderr, "Warning: terminal state is nil, cannot restore\n")
+		}
 		return nil
 	}
 	return term.Restore(ts.fd, ts.state)

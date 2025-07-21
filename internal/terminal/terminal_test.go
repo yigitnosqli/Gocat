@@ -9,7 +9,7 @@ func TestGetState(t *testing.T) {
 	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
 		t.Skip("Skipping terminal test on non-Unix system")
 	}
-	
+
 	tests := []struct {
 		name string
 		fd   int
