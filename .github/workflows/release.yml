@@ -170,25 +170,10 @@ jobs:
         "
         
         # Build with optimizations
-        go build \
-          -trimpath \
-          -buildmode=pie \
-          -ldflags="${LDFLAGS}" \
-          -o "${{ matrix.artifact }}" \
-          .
+         }e Crea     echo "📦reating relese archive.."
         
-        # Verify build
-        ls -la "${{ matrix.artifact }}"
-        file "${{ matrix.artifact }}"
-        
-        echo "✅ Build completed: ${{ matrix.artifact }}"
-    
-    - name: 📦 Create Archive
-      run: |
-        echo "📦 Creating release archive..."
-        
-        # Create directory structure
-        ARCHIVE_NAME="gocat-${{ needs.prepare.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+      # Create directory structure
+        ARCHI_NAME="gocat-${{ needs.prepareoutputs.vesmatrix.goos }}-${{ matrix.goarch }}"
         mkdir -p "${ARCHIVE_NAME}"
         
         # Copy binary
