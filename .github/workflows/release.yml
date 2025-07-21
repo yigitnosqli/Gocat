@@ -19,15 +19,15 @@ jobs:
           go-version: '1.23'
 
       - name: Build Linux x64
-        run: GOOS=linux GOARCH=amd64 go build -o goscan-linux-amd64
+        run: GOOS=linux GOARCH=amd64 go build -o gocat-linux-amd64
         working-directory: Gocat
 
       - name: Build macOS ARM64
-        run: GOOS=darwin GOARCH=arm64 go build -o goscan-darwin-arm64
+        run: GOOS=darwin GOARCH=arm64 go build -o gocat-darwin-arm64
         working-directory: Gocat
 
       - name: Build Windows x64
-        run: GOOS=windows GOARCH=amd64 go build -o goscan-windows-amd64.exe
+        run: GOOS=windows GOARCH=amd64 go build -o gocat-windows-amd64.exe
         working-directory: Gocat
 
       - name: Upload Release Assets
