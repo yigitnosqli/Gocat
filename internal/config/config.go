@@ -79,6 +79,19 @@ type TLSConfig struct {
 	CipherSuites       []string `yaml:"cipher_suites" json:"cipher_suites"`
 }
 
+// Validate validates the TLS configuration
+func (t *TLSConfig) Validate() error {
+	if t.Enabled {
+		if t.CertFile == "" {
+			return fmt.Errorf("TLS is enabled but cert_file is not provided")
+		}
+		if t.KeyFile == "" {
+			return fmt.Errorf("TLS is enabled but key_file is not provided")
+		}
+	}
+	return nil
+}
+
 // DefaultConfig returns a configuration with default values
 func DefaultConfig() *Config {
 	return &Config{
@@ -290,16 +303,18 @@ func (c *Config) Validate() error {
 	}
 
 	// Validate TLS configuration
+	if err := c.Security.TLSConfig.Validate(); err != nil {
+		return err
+	}
+
 	if c.Security.TLSConfig.Enabled {
-		if c.Security.TLSConfig.CertFile != "" {
-			if _, err := os.Stat(c.Security.TLSConfig.CertFile); os.IsNotExist(err) {
-				return fmt.Errorf("tls.cert_file does not exist: %s", c.Security.TLSConfig.CertFile)
-			}
+		// Both CertFile and KeyFile are required when TLS is enabled (already checked by Validate())
+		// Now verify that the files actually exist
+		if _, err := os.Stat(c.Security.TLSConfig.CertFile); os.IsNotExist(err) {
+			return fmt.Errorf("tls.cert_file does not exist: %s", c.Security.TLSConfig.CertFile)
 		}
-		if c.Security.TLSConfig.KeyFile != "" {
-			if _, err := os.Stat(c.Security.TLSConfig.KeyFile); os.IsNotExist(err) {
-				return fmt.Errorf("tls.key_file does not exist: %s", c.Security.TLSConfig.KeyFile)
-			}
+		if _, err := os.Stat(c.Security.TLSConfig.KeyFile); os.IsNotExist(err) {
+			return fmt.Errorf("tls.key_file does not exist: %s", c.Security.TLSConfig.KeyFile)
 		}
 	}
 
@@ -319,7 +334,7 @@ func (c *Config) SaveToFile(path string) error {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0600)
 }
 
 // GetConfigPath returns the default configuration file path

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gorilla/websocket"
 	"github.com/ibrahmsql/gocat/internal/logger"
@@ -19,18 +20,25 @@ type WebSocketServer struct {
 	upgrader    websocket.Upgrader
 	logger      *logger.Logger
 	metrics     *metrics.Metrics
-	broadcast   chan []byte
+	broadcast   chan WebSocketMessage
 	register    chan *WebSocketConnection
 	unregister  chan *WebSocketConnection
 	ctx         context.Context
 	cancel      context.CancelFunc
+	config      *WebSocketConfig
+}
+
+// WebSocketMessage represents a message with its type
+type WebSocketMessage struct {
+	Data []byte
+	Type int // websocket.TextMessage or websocket.BinaryMessage
 }
 
 // WebSocketConnection represents a WebSocket connection
 type WebSocketConnection struct {
 	ID       string
 	Conn     *websocket.Conn
-	Send     chan []byte
+	Send     chan WebSocketMessage
 	Server   *WebSocketServer
 	LastPing time.Time
 	UserData map[string]interface{}
@@ -61,8 +69,28 @@ func DefaultWebSocketConfig() *WebSocketConfig {
 		WriteWait:         10 * time.Second,
 		MaxMessageSize:    512,
 		EnableCompression: true,
+		// CheckOrigin is critical for WebSocket security in production environments.
+		// This function validates the Origin header to prevent Cross-Site WebSocket Hijacking (CSWSH) attacks.
+		//
+		// SECURITY WARNING: The current implementation rejects all origins by default.
+		// For production use, you MUST configure this based on your deployment:
+		//
+		// 1. For same-origin only: Check if r.Header.Get("Origin") matches your domain
+		// 2. For specific domains: Maintain a whitelist of allowed origins
+		// 3. For development: You may temporarily allow localhost/127.0.0.1
+		//
+		// Example implementations:
+		// - Same origin: return r.Header.Get("Origin") == "https://yourdomain.com"
+		// - Whitelist: allowedOrigins := []string{"https://app.com", "https://admin.app.com"}
+		//             origin := r.Header.Get("Origin")
+		//             for _, allowed := range allowedOrigins { if origin == allowed { return true } }
+		//             return false
+		// - Development: return strings.Contains(r.Header.Get("Origin"), "localhost") ||
+		//                      strings.Contains(r.Header.Get("Origin"), "127.0.0.1")
 		CheckOrigin: func(r *http.Request) bool {
-			return true // Allow all origins in development
+			// SECURE DEFAULT: Reject all origins
+			// TODO: Configure this function based on your deployment requirements
+			return false
 		},
 	}
 }
@@ -85,12 +113,13 @@ func NewWebSocketServer(config *WebSocketConfig) *WebSocketServer {
 			EnableCompression: config.EnableCompression,
 		},
 		logger:     logger.GetDefaultLogger(),
-		metrics:    metrics.NewMetrics(),
-		broadcast:  make(chan []byte),
+		metrics:    metrics.GetGlobalMetrics(),
+		broadcast:  make(chan WebSocketMessage),
 		register:   make(chan *WebSocketConnection),
 		unregister: make(chan *WebSocketConnection),
 		ctx:        ctx,
 		cancel:     cancel,
+		config:     config,
 	}
 
 	go server.run()
@@ -115,7 +144,7 @@ func (s *WebSocketServer) HandleWebSocket(w http.ResponseWriter, r *http.Request
 	client := &WebSocketConnection{
 		ID:       connID,
 		Conn:     conn,
-		Send:     make(chan []byte, 256),
+		Send:     make(chan WebSocketMessage, 256),
 		Server:   s,
 		LastPing: time.Now(),
 		UserData: make(map[string]interface{}),
@@ -155,24 +184,64 @@ func (s *WebSocketServer) run() {
 			s.metrics.DecrementConnectionsActive()
 
 		case message := <-s.broadcast:
+			// Collect clients to delete while holding read lock
+			var clientsToDelete []string
 			s.mu.RLock()
 			for _, client := range s.connections {
 				select {
 				case client.Send <- message:
 				default:
 					close(client.Send)
-					delete(s.connections, client.ID)
+					clientsToDelete = append(clientsToDelete, client.ID)
 				}
 			}
 			s.mu.RUnlock()
+
+			// Delete clients under write lock to prevent race conditions
+			if len(clientsToDelete) > 0 {
+				s.mu.Lock()
+				for _, clientID := range clientsToDelete {
+					delete(s.connections, clientID)
+				}
+				s.mu.Unlock()
+			}
 		}
 	}
 }
 
+// isTextMessage determines if a message contains valid UTF-8 text
+func isTextMessage(data []byte) bool {
+	// Simple heuristic: check if the data is valid UTF-8
+	// and doesn't contain null bytes (common in binary data)
+	for _, b := range data {
+		if b == 0 {
+			return false
+		}
+	}
+	return utf8.Valid(data)
+}
+
 // Broadcast sends a message to all connected clients
 func (s *WebSocketServer) Broadcast(message []byte) {
+	// Determine message type
+	msgType := websocket.TextMessage
+	if !isTextMessage(message) {
+		msgType = websocket.BinaryMessage
+	}
+
+	websocketMsg := WebSocketMessage{Data: message, Type: msgType}
 	select {
-	case s.broadcast <- message:
+	case s.broadcast <- websocketMsg:
+	default:
+		s.logger.Warn("Broadcast channel is full, message dropped")
+	}
+}
+
+// BroadcastWithType sends a message with specified type to all connected clients
+func (s *WebSocketServer) BroadcastWithType(message []byte, messageType int) {
+	websocketMsg := WebSocketMessage{Data: message, Type: messageType}
+	select {
+	case s.broadcast <- websocketMsg:
 	default:
 		s.logger.Warn("Broadcast channel is full, message dropped")
 	}
@@ -180,6 +249,17 @@ func (s *WebSocketServer) Broadcast(message []byte) {
 
 // SendToClient sends a message to a specific client
 func (s *WebSocketServer) SendToClient(clientID string, message []byte) error {
+	// Determine message type
+	msgType := websocket.TextMessage
+	if !isTextMessage(message) {
+		msgType = websocket.BinaryMessage
+	}
+
+	return s.SendToClientWithType(clientID, message, msgType)
+}
+
+// SendToClientWithType sends a message with specified type to a specific client
+func (s *WebSocketServer) SendToClientWithType(clientID string, message []byte, messageType int) error {
 	s.mu.RLock()
 	client, exists := s.connections[clientID]
 	s.mu.RUnlock()
@@ -188,8 +268,9 @@ func (s *WebSocketServer) SendToClient(clientID string, message []byte) error {
 		return fmt.Errorf("client %s not found", clientID)
 	}
 
+	websocketMsg := WebSocketMessage{Data: message, Type: messageType}
 	select {
-	case client.Send <- message:
+	case client.Send <- websocketMsg:
 		return nil
 	default:
 		return fmt.Errorf("client %s send channel is full", clientID)
@@ -238,10 +319,10 @@ func (c *WebSocketConnection) readPump() {
 		c.Conn.Close()
 	}()
 
-	c.Conn.SetReadLimit(512)
-	c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	c.Conn.SetReadLimit(c.Server.config.MaxMessageSize)
+	c.Conn.SetReadDeadline(time.Now().Add(c.Server.config.PongWait))
 	c.Conn.SetPongHandler(func(string) error {
-		c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		c.Conn.SetReadDeadline(time.Now().Add(c.Server.config.PongWait))
 		c.LastPing = time.Now()
 		return nil
 	})
@@ -261,13 +342,18 @@ func (c *WebSocketConnection) readPump() {
 		c.Server.metrics.AddBytesReceived(int64(len(message)))
 
 		// Echo the message back (can be customized)
-		c.Send <- message
+		// Determine message type based on content (simple heuristic)
+		msgType := websocket.TextMessage
+		if !isTextMessage(message) {
+			msgType = websocket.BinaryMessage
+		}
+		c.Send <- WebSocketMessage{Data: message, Type: msgType}
 	}
 }
 
 // writePump pumps messages from the hub to the websocket connection
 func (c *WebSocketConnection) writePump() {
-	ticker := time.NewTicker(54 * time.Second)
+	ticker := time.NewTicker(c.Server.config.PingPeriod)
 	defer func() {
 		ticker.Stop()
 		c.Conn.Close()
@@ -276,30 +362,71 @@ func (c *WebSocketConnection) writePump() {
 	for {
 		select {
 		case message, ok := <-c.Send:
-			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			c.Conn.SetWriteDeadline(time.Now().Add(c.Server.config.WriteWait))
 			if !ok {
 				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
-			w, err := c.Conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				return
-			}
-			w.Write(message)
+			// For binary messages, send each message separately to preserve boundaries
+			if message.Type == websocket.BinaryMessage {
+				if err := c.Conn.WriteMessage(message.Type, message.Data); err != nil {
+					return
+				}
+				c.Server.metrics.AddBytesSent(int64(len(message.Data)))
 
-			// Add queued chat messages to the current websocket message
-			n := len(c.Send)
-			for i := 0; i < n; i++ {
-				w.Write([]byte{'\n'})
-				w.Write(<-c.Send)
-			}
+				// Send any additional binary messages separately
+				n := len(c.Send)
+				for i := 0; i < n; i++ {
+					queuedMsg := <-c.Send
+					if err := c.Conn.WriteMessage(queuedMsg.Type, queuedMsg.Data); err != nil {
+						return
+					}
+					c.Server.metrics.AddBytesSent(int64(len(queuedMsg.Data)))
+				}
+			} else {
+				// For text messages, batch them with newline separators
+				w, err := c.Conn.NextWriter(message.Type)
+				if err != nil {
+					return
+				}
+				w.Write(message.Data)
 
-			if err := w.Close(); err != nil {
-				return
-			}
+				// Add queued text messages to the current websocket message
+				n := len(c.Send)
+				for i := 0; i < n; i++ {
+					queuedMsg := <-c.Send
+					if queuedMsg.Type == websocket.TextMessage {
+						w.Write([]byte{'\n'})
+						w.Write(queuedMsg.Data)
+					} else {
+						// If we encounter a binary message while batching text, close current writer
+						// and send the binary message separately
+						if err := w.Close(); err != nil {
+							return
+						}
+						if err := c.Conn.WriteMessage(queuedMsg.Type, queuedMsg.Data); err != nil {
+							return
+						}
+						c.Server.metrics.AddBytesSent(int64(len(queuedMsg.Data)))
+						// Continue with remaining messages
+						for j := i + 1; j < n; j++ {
+							remaining := <-c.Send
+							if err := c.Conn.WriteMessage(remaining.Type, remaining.Data); err != nil {
+								return
+							}
+							c.Server.metrics.AddBytesSent(int64(len(remaining.Data)))
+						}
+						c.Server.metrics.AddBytesSent(int64(len(message.Data)))
+						return
+					}
+				}
 
-			c.Server.metrics.AddBytesSent(int64(len(message)))
+				if err := w.Close(); err != nil {
+					return
+				}
+				c.Server.metrics.AddBytesSent(int64(len(message.Data)))
+			}
 
 		case <-ticker.C:
 			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))

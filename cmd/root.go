@@ -410,7 +410,26 @@ func loadConfigFile(configPath string) error {
 	for key, value := range config {
 		if flag := rootCmd.PersistentFlags().Lookup(key); flag != nil {
 			if !flag.Changed { // Only set if not already set by command line
-				if err := flag.Value.Set(fmt.Sprintf("%v", value)); err != nil {
+				var stringValue string
+
+				// Handle different value types with type switch
+				switch v := value.(type) {
+				case []interface{}:
+					// Handle slice of interfaces (e.g., StringSlice flags)
+					var strSlice []string
+					for _, item := range v {
+						strSlice = append(strSlice, fmt.Sprintf("%v", item))
+					}
+					stringValue = strings.Join(strSlice, ",")
+				case []string:
+					// Handle slice of strings
+					stringValue = strings.Join(v, ",")
+				default:
+					// Handle primitive types
+					stringValue = fmt.Sprintf("%v", value)
+				}
+
+				if err := flag.Value.Set(stringValue); err != nil {
 					logger.Warn("Failed to set config value for %s: %v", key, err)
 				}
 			}

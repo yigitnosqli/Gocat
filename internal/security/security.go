@@ -161,8 +161,8 @@ func (v *InputValidator) SanitizeCommand(command string) (string, error) {
 		return "", fmt.Errorf("command contains shell metacharacters")
 	}
 
-	// Only allow alphanumeric, spaces, hyphens, underscores, dots, and forward slashes
-	allowedRegex := regexp.MustCompile(`^[a-zA-Z0-9\s\-_\./]+$`)
+	// Only allow alphanumeric, spaces, hyphens, underscores, dots, forward slashes, and @ symbol
+	allowedRegex := regexp.MustCompile(`^[a-zA-Z0-9\s\-_\./@ ]+$`)
 	if !allowedRegex.MatchString(command) {
 		return "", fmt.Errorf("command contains invalid characters")
 	}

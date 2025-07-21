@@ -5,6 +5,14 @@ import (
 	"time"
 )
 
+// Error type constants for improved type safety
+const (
+	ErrorTypeNetwork    = "network"
+	ErrorTypeValidation = "validation"
+	ErrorTypeSecurity   = "security"
+	ErrorTypeTimeout    = "timeout"
+)
+
 // Metrics holds application metrics
 type Metrics struct {
 	mu                sync.RWMutex
@@ -95,13 +103,13 @@ func (m *Metrics) IncrementErrors(errorType string) {
 	m.ErrorsTotal++
 
 	switch errorType {
-	case "network":
+	case ErrorTypeNetwork:
 		m.NetworkErrors++
-	case "validation":
+	case ErrorTypeValidation:
 		m.ValidationErrors++
-	case "security":
+	case ErrorTypeSecurity:
 		m.SecurityErrors++
-	case "timeout":
+	case ErrorTypeTimeout:
 		m.TimeoutErrors++
 	}
 
@@ -120,9 +128,16 @@ func (m *Metrics) IncrementRequests() {
 func (m *Metrics) RecordRequestDuration(duration time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	// Simple average calculation (could be improved with proper histogram)
+	// Calculate average using float64 to prevent overflow and preserve precision
 	if m.RequestsTotal > 0 {
-		m.RequestDuration = (m.RequestDuration*time.Duration(m.RequestsTotal-1) + duration) / time.Duration(m.RequestsTotal)
+		// Convert to float64 for precise calculation
+		currentAvg := float64(m.RequestDuration)
+		newDuration := float64(duration)
+		totalRequests := float64(m.RequestsTotal)
+
+		// Calculate weighted average: ((current_avg * (n-1)) + new_duration) / n
+		newAvg := (currentAvg*(totalRequests-1) + newDuration) / totalRequests
+		m.RequestDuration = time.Duration(newAvg)
 	} else {
 		m.RequestDuration = duration
 	}

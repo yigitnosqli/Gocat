@@ -109,6 +109,12 @@ func RunTUIWithGracefulShutdown() error {
 		app.Shutdown(5 * time.Second)
 	}()
 
+	// Ensure cleanup of signal handling
+	defer func() {
+		signal.Stop(sigChan)
+		close(sigChan)
+	}()
+
 	// Create the model
 	m := NewModel()
 

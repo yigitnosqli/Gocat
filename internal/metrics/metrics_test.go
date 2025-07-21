@@ -114,7 +114,7 @@ func TestAddBytesSent(t *testing.T) {
 func TestIncrementErrors(t *testing.T) {
 	m := NewMetrics()
 
-	m.IncrementErrors("network")
+	m.IncrementErrors(ErrorTypeNetwork)
 	if m.ErrorsTotal != 1 {
 		t.Errorf("Expected ErrorsTotal to be 1, got %d", m.ErrorsTotal)
 	}
@@ -122,7 +122,7 @@ func TestIncrementErrors(t *testing.T) {
 		t.Errorf("Expected NetworkErrors to be 1, got %d", m.NetworkErrors)
 	}
 
-	m.IncrementErrors("validation")
+	m.IncrementErrors(ErrorTypeValidation)
 	if m.ErrorsTotal != 2 {
 		t.Errorf("Expected ErrorsTotal to be 2, got %d", m.ErrorsTotal)
 	}
@@ -130,12 +130,12 @@ func TestIncrementErrors(t *testing.T) {
 		t.Errorf("Expected ValidationErrors to be 1, got %d", m.ValidationErrors)
 	}
 
-	m.IncrementErrors("security")
+	m.IncrementErrors(ErrorTypeSecurity)
 	if m.SecurityErrors != 1 {
 		t.Errorf("Expected SecurityErrors to be 1, got %d", m.SecurityErrors)
 	}
 
-	m.IncrementErrors("timeout")
+	m.IncrementErrors(ErrorTypeTimeout)
 	if m.TimeoutErrors != 1 {
 		t.Errorf("Expected TimeoutErrors to be 1, got %d", m.TimeoutErrors)
 	}
@@ -173,7 +173,7 @@ func TestGetSnapshot(t *testing.T) {
 	m.IncrementConnectionsActive()
 	m.IncrementConnectionsFailed()
 	m.AddBytesTransferred(1000)
-	m.IncrementErrors("network")
+	m.IncrementErrors(ErrorTypeNetwork)
 	m.IncrementRequests()
 
 	snapshot := m.GetSnapshot()
@@ -278,7 +278,7 @@ func TestReset(t *testing.T) {
 	m.IncrementConnectionsActive()
 	m.IncrementConnectionsFailed()
 	m.AddBytesTransferred(1000)
-	m.IncrementErrors("network")
+	m.IncrementErrors(ErrorTypeNetwork)
 	m.IncrementRequests()
 
 	// Reset
@@ -346,7 +346,7 @@ func BenchmarkGetSnapshot(b *testing.B) {
 	// Add some data first
 	m.IncrementConnectionsActive()
 	m.AddBytesTransferred(1000)
-	m.IncrementErrors("network")
+	m.IncrementErrors(ErrorTypeNetwork)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
