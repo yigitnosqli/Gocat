@@ -1,3 +1,4 @@
+
 name: 🚀 Release Pipeline
 
 on:
@@ -56,7 +57,6 @@ jobs:
         
         echo "🏷️ Release Version: ${VERSION}"
         echo "🔖 Pre-release: ${IS_PRERELEASE}"
-
   # 🧪 Pre-Release Tests
   test:
     name: 🧪 Pre-Release Tests
@@ -84,7 +84,6 @@ jobs:
         echo "🏗️ Testing build process..."
         go build -v -o gocat-test .
         ./gocat-test --help
-
   # 🏗️ Multi-Platform Build
   build:
     name: 🏗️ Build (${{ matrix.name }})
@@ -171,21 +170,12 @@ jobs:
         "
         
         # Build with optimizations
-        # Note: -buildmode=pie causes issues with ARM when CGO_ENABLED=0
-        if [[ "${{ matrix.goarch }}" == "arm" || "${{ matrix.goarch }}" == "arm64" ]]; then
-          go build \
-            -trimpath \
-            -ldflags="${LDFLAGS}" \
-            -o "${{ matrix.artifact }}" \
-            .
-        else
-          go build \
-            -trimpath \
-            -buildmode=pie \
-            -ldflags="${LDFLAGS}" \
-            -o "${{ matrix.artifact }}" \
-            .
-        fi
+        go build \
+          -trimpath \
+          -buildmode=pie \
+          -ldflags="${LDFLAGS}" \
+          -o "${{ matrix.artifact }}" \
+          .
         
         # Verify build
         ls -la "${{ matrix.artifact }}"
@@ -362,7 +352,6 @@ jobs:
         build-args: |
           VERSION=${{ needs.prepare.outputs.version }}
           BINARY_PATH=./gocat-${{ needs.prepare.outputs.version }}-linux-amd64
-
   # 🚀 Create Release
   release:
     name: 🚀 Create GitHub Release
