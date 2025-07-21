@@ -5,12 +5,17 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
 
 // mockReadWriter implements io.ReadWriter for testing with separate read/write buffers
 type mockReadWriter struct {
+<<<<<<< Updated upstream
+=======
+	mu       sync.RWMutex  // protects all fields
+>>>>>>> Stashed changes
 	buf      *bytes.Buffer // for reading
 	writeBuf *bytes.Buffer // for writing
 	readErr  error
@@ -26,6 +31,8 @@ func newMockReadWriter(data string) *mockReadWriter {
 }
 
 func (m *mockReadWriter) Read(p []byte) (n int, err error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if m.readErr != nil {
 		return 0, m.readErr
 	}
@@ -33,6 +40,8 @@ func (m *mockReadWriter) Read(p []byte) (n int, err error) {
 }
 
 func (m *mockReadWriter) Write(p []byte) (n int, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.writeErr != nil {
 		return 0, m.writeErr
 	}
@@ -40,11 +49,18 @@ func (m *mockReadWriter) Write(p []byte) (n int, err error) {
 }
 
 func (m *mockReadWriter) Close() error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return m.closeErr
 }
 
 // String returns the written data for testing
 func (m *mockReadWriter) String() string {
+<<<<<<< Updated upstream
+=======
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+>>>>>>> Stashed changes
 	return m.writeBuf.String()
 }
 
