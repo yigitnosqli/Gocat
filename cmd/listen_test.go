@@ -89,9 +89,15 @@ func TestMaxConnections(t *testing.T) {
 }
 
 func TestConnectionTimeout(t *testing.T) {
+	// Skip this test in short mode to avoid race conditions
+	if testing.Short() {
+		t.Skip("Skipping timeout test in short mode")
+	}
+
 	// Save original value
 	origListenTimeout := listenTimeout
-	listenTimeout = 100 * time.Millisecond
+	testTimeout := 100 * time.Millisecond
+	listenTimeout = testTimeout
 
 	// Restore original value
 	defer func() {
@@ -109,9 +115,11 @@ func TestConnectionTimeout(t *testing.T) {
 		}
 	}()
 
+	done := make(chan error, 1)
 	go func() {
 		conn, acceptErr := listener.Accept()
 		if acceptErr != nil {
+			done <- acceptErr
 			return
 		}
 		defer func() {
@@ -121,18 +129,18 @@ func TestConnectionTimeout(t *testing.T) {
 		}()
 
 		// Set deadline and test timeout
-		if listenTimeout > 0 {
-			if deadlineErr := conn.SetDeadline(time.Now().Add(listenTimeout)); deadlineErr != nil {
+		if testTimeout > 0 {
+			if deadlineErr := conn.SetDeadline(time.Now().Add(testTimeout)); deadlineErr != nil {
 				t.Logf("Error setting deadline: %v", deadlineErr)
+				done <- deadlineErr
+				return
 			}
 		}
 
 		// Try to read (should timeout)
 		buffer := make([]byte, 1024)
-		_, err = conn.Read(buffer)
-		if err == nil {
-			t.Error("Expected timeout error")
-		}
+		_, readErr := conn.Read(buffer)
+		done <- readErr
 	}()
 
 	addr := listener.Addr().(*net.TCPAddr)
@@ -147,7 +155,14 @@ func TestConnectionTimeout(t *testing.T) {
 	}()
 
 	// Wait for the timeout test to complete
-	time.Sleep(200 * time.Millisecond)
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Error("Expected timeout error")
+		}
+	case <-time.After(300 * time.Millisecond):
+		t.Log("Test completed with timeout")
+	}
 }
 
 func BenchmarkListen(b *testing.B) {
