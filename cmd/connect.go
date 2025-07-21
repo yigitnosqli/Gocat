@@ -394,8 +394,6 @@ func parseCipherSuites(ciphers string) []uint16 {
 	return result
 }
 
-
-
 // handleDataFlowControl implements send-only and recv-only modes
 func handleDataFlowControl(conn net.Conn) error {
 	var outputWriter io.Writer = os.Stdout
