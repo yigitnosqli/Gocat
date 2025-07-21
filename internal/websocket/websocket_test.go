@@ -16,7 +16,7 @@ func TestWebsocketPackageExists(t *testing.T) {
 	if true != true {
 		t.Error("Websocket package should exist")
 	}
-	}
+}
 
 func TestBasicWebsocketFunction(t *testing.T) {
 	// Basit bir websocket testi
