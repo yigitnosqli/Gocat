@@ -33,9 +33,9 @@ func GetState(fd int) (*TerminalState, error) {
 
 	handle := syscall.Handle(fd)
 	var mode uint32
-	err2 := syscall.Syscall(procGetConsoleMode.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(&mode)), 0)
-	if err2 != 0 {
-		return nil, syscall.Errno(err2)
+	r1, _, err2 := syscall.Syscall(procGetConsoleMode.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(&mode)), 0)
+	if r1 == 0 {
+		return nil, err2
 	}
 
 	return &TerminalState{
@@ -54,9 +54,9 @@ func (ts *TerminalState) Restore() error {
 	}
 
 	handle := syscall.Handle(ts.fd)
-	err := syscall.Syscall(procSetConsoleMode.Addr(), 2, uintptr(handle), uintptr(ts.mode), 0)
-	if err != 0 {
-		return syscall.Errno(err)
+	r1, _, err := syscall.Syscall(procSetConsoleMode.Addr(), 2, uintptr(handle), uintptr(ts.mode), 0)
+	if r1 == 0 {
+		return err
 	}
 	return nil
 }
@@ -68,15 +68,16 @@ func MakeRaw(fd int) (*TerminalState, error) {
 		return nil, err
 	}
 
-	if err := term.MakeRaw(fd); err != nil {
+	_, err = term.MakeRaw(fd)
+	if err != nil {
 		return nil, err
 	}
 
 	// Enable virtual terminal processing for color support
 	handle := syscall.Handle(fd)
 	newMode := oldState.mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | ENABLE_PROCESSED_OUTPUT
-	err2 := syscall.Syscall(procSetConsoleMode.Addr(), 2, uintptr(handle), uintptr(newMode), 0)
-	if err2 != 0 {
+	r1, _, _ := syscall.Syscall(procSetConsoleMode.Addr(), 2, uintptr(handle), uintptr(newMode), 0)
+	if r1 == 0 {
 		// Non-fatal error, continue without VT processing
 	}
 
@@ -109,9 +110,9 @@ func SetWindowSize(fd int, width, height int) error {
 		X: int16(width),
 		Y: int16(height),
 	}
-	err := syscall.Syscall(procSetConsoleScreenBufferSize.Addr(), 2, uintptr(handle), uintptr(*((*uint32)(unsafe.Pointer(&coord)))), 0)
-	if err != 0 {
-		return syscall.Errno(err)
+	r1, _, err := syscall.Syscall(procSetConsoleScreenBufferSize.Addr(), 2, uintptr(handle), uintptr(*((*uint32)(unsafe.Pointer(&coord)))), 0)
+	if r1 == 0 {
+		return err
 	}
 	return nil
 }
