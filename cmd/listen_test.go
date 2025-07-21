@@ -94,15 +94,8 @@ func TestConnectionTimeout(t *testing.T) {
 		t.Skip("Skipping timeout test in short mode")
 	}
 
-	// Save original value
-	origListenTimeout := listenTimeout
-	testTimeout := 100 * time.Millisecond
-	listenTimeout = testTimeout
-
-	// Restore original value
-	defer func() {
-		listenTimeout = origListenTimeout
-	}()
+	// Use local timeout variable to avoid race conditions
+	testTimeout := 50 * time.Millisecond
 
 	// Create a mock connection that simulates timeout behavior
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -115,11 +108,23 @@ func TestConnectionTimeout(t *testing.T) {
 		}
 	}()
 
-	done := make(chan error, 1)
+	done := make(chan bool, 1)
+	result := make(chan error, 1)
+
 	go func() {
+		defer func() {
+			select {
+			case done <- true:
+			default:
+			}
+		}()
+
 		conn, acceptErr := listener.Accept()
 		if acceptErr != nil {
-			done <- acceptErr
+			select {
+			case result <- acceptErr:
+			case <-done:
+			}
 			return
 		}
 		defer func() {
@@ -129,18 +134,22 @@ func TestConnectionTimeout(t *testing.T) {
 		}()
 
 		// Set deadline and test timeout
-		if testTimeout > 0 {
-			if deadlineErr := conn.SetDeadline(time.Now().Add(testTimeout)); deadlineErr != nil {
-				t.Logf("Error setting deadline: %v", deadlineErr)
-				done <- deadlineErr
-				return
+		if deadlineErr := conn.SetDeadline(time.Now().Add(testTimeout)); deadlineErr != nil {
+			t.Logf("Error setting deadline: %v", deadlineErr)
+			select {
+			case result <- deadlineErr:
+			case <-done:
 			}
+			return
 		}
 
 		// Try to read (should timeout)
 		buffer := make([]byte, 1024)
 		_, readErr := conn.Read(buffer)
-		done <- readErr
+		select {
+		case result <- readErr:
+		case <-done:
+		}
 	}()
 
 	addr := listener.Addr().(*net.TCPAddr)
@@ -156,12 +165,18 @@ func TestConnectionTimeout(t *testing.T) {
 
 	// Wait for the timeout test to complete
 	select {
-	case err := <-done:
+	case err := <-result:
 		if err == nil {
 			t.Error("Expected timeout error")
 		}
-	case <-time.After(300 * time.Millisecond):
+	case <-time.After(200 * time.Millisecond):
 		t.Log("Test completed with timeout")
+	}
+
+	// Signal completion
+	select {
+	case done <- true:
+	default:
 	}
 }
 
