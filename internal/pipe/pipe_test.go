@@ -256,20 +256,6 @@ func TestPipeDataBasic(t *testing.T) {
 		buf:      bytes.NewBufferString("Hello from conn2"),
 		writeBuf: &bytes.Buffer{},
 	}
-	// Skip this test when running with race detector due to intentional race conditions in mock
-	if testing.Short() {
-		t.Skip("Skipping race-prone test in short mode")
-	}
-
-	// Create separate buffers for each connection to avoid race conditions
-	conn1 := &mockReadWriter{
-		buf:      bytes.NewBufferString("Hello from conn1"),
-		writeBuf: &bytes.Buffer{},
-	}
-	conn2 := &mockReadWriter{
-		buf:      bytes.NewBufferString("Hello from conn2"),
-		writeBuf: &bytes.Buffer{},
-	}
 
 	// Use a timeout to prevent the test from hanging
 	done := make(chan bool)
@@ -288,7 +274,6 @@ func TestPipeDataBasic(t *testing.T) {
 	select {
 	case <-done:
 		// Function completed
-	case <-time.After(50 * time.Millisecond):
 	case <-time.After(50 * time.Millisecond):
 		// Timeout - this is expected as PipeData runs indefinitely
 	}
