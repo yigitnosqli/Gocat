@@ -16,26 +16,23 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
 
       - name: Build Linux x64
         run: GOOS=linux GOARCH=amd64 go build -o gocat-linux-amd64
-        working-directory: Gocat
 
       - name: Build macOS ARM64
         run: GOOS=darwin GOARCH=arm64 go build -o gocat-darwin-arm64
-        working-directory: Gocat
 
       - name: Build Windows x64
         run: GOOS=windows GOARCH=amd64 go build -o gocat-windows-amd64.exe
-        working-directory: Gocat
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            Gocat/Gocat-linux-amd64
-            Gocat/Gocat-darwin-arm64
-            Gocat/Gocat-windows-amd64.exe
+            gocat-linux-amd64
+            gocat-darwin-arm64
+            gocat-windows-amd64.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
