@@ -249,11 +249,11 @@ func TestPipeDataBasic(t *testing.T) {
 
 	// Create separate buffers for each connection to avoid race conditions
 	conn1 := &mockReadWriter{
-		buf:      bytes.NewBufferString("Hello from conn1"),
+		buf: bytes.NewBufferString("Hello from conn1"),
 		writeBuf: &bytes.Buffer{},
 	}
 	conn2 := &mockReadWriter{
-		buf:      bytes.NewBufferString("Hello from conn2"),
+		buf: bytes.NewBufferString("Hello from conn2"),
 		writeBuf: &bytes.Buffer{},
 	}
 

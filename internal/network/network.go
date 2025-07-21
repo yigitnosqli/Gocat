@@ -296,8 +296,8 @@ func (d *Dialer) Dial(ctx context.Context, address string) (*Connection, error) 
 	}
 
 	// Validate hostname
-	if err := d.validator.ValidateHostname(host); err != nil {
-		return nil, errors.WrapError(err, errors.ErrorTypeValidation, errors.SeverityMedium, "VAL007", "Invalid hostname")
+	if validationErr := d.validator.ValidateHostname(host); validationErr != nil {
+		return nil, errors.WrapError(validationErr, errors.ErrorTypeValidation, errors.SeverityMedium, "VAL007", "Invalid hostname")
 	}
 
 	// Validate port
@@ -530,8 +530,8 @@ func Listen(ctx context.Context, address string, options *ConnectionOptions) (*L
 
 	// Validate hostname
 	if host != "" {
-		if err := validator.ValidateHostname(host); err != nil {
-			return nil, errors.WrapError(err, errors.ErrorTypeValidation, errors.SeverityMedium, "VAL011", "Invalid hostname")
+		if validationErr := validator.ValidateHostname(host); validationErr != nil {
+			return nil, errors.WrapError(validationErr, errors.ErrorTypeValidation, errors.SeverityMedium, "VAL011", "Invalid hostname")
 		}
 	}
 
