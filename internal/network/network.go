@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/ibrahmsql/gocat/internal/errors"
@@ -75,6 +77,8 @@ type Connection struct {
 	bytesRead    int64
 	bytesWritten int64
 	lastActivity time.Time
+	ctx          context.Context
+	cancel       context.CancelFunc
 }
 
 // NewConnection creates a new enhanced connection
@@ -83,12 +87,16 @@ func NewConnection(conn net.Conn, options *ConnectionOptions) *Connection {
 		options = DefaultConnectionOptions()
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &Connection{
 		conn:         conn,
 		options:      options,
 		validator:    security.NewInputValidator(),
 		connectedAt:  time.Now(),
 		lastActivity: time.Now(),
+		ctx:          ctx,
+		cancel:       cancel,
 	}
 }
 
@@ -101,8 +109,19 @@ func (c *Connection) Read(b []byte) (int, error) {
 		return 0, errors.NetworkError("NET007", "Connection is closed").WithUserFriendly("Connection has been closed")
 	}
 
+	// Set read deadline if configured
+	if c.options.Timeout > 0 {
+		if err := c.conn.SetReadDeadline(time.Now().Add(c.options.Timeout)); err != nil {
+			return 0, errors.WrapError(err, errors.ErrorTypeNetwork, errors.SeverityMedium, "NET011", "Failed to set read deadline")
+		}
+	}
+
 	n, err := c.conn.Read(b)
 	if err != nil {
+		// Mark connection as closed on certain errors
+		if isConnectionClosedError(err) {
+			c.closed = true
+		}
 		return n, errors.WrapError(err, errors.ErrorTypeNetwork, errors.SeverityHigh, "NET008", "Failed to read from connection")
 	}
 
@@ -120,8 +139,19 @@ func (c *Connection) Write(b []byte) (int, error) {
 		return 0, errors.NetworkError("NET009", "Connection is closed").WithUserFriendly("Connection has been closed")
 	}
 
+	// Set write deadline if configured
+	if c.options.Timeout > 0 {
+		if err := c.conn.SetWriteDeadline(time.Now().Add(c.options.Timeout)); err != nil {
+			return 0, errors.WrapError(err, errors.ErrorTypeNetwork, errors.SeverityMedium, "NET012", "Failed to set write deadline")
+		}
+	}
+
 	n, err := c.conn.Write(b)
 	if err != nil {
+		// Mark connection as closed on certain errors
+		if isConnectionClosedError(err) {
+			c.closed = true
+		}
 		return n, errors.WrapError(err, errors.ErrorTypeNetwork, errors.SeverityHigh, "NET010", "Failed to write to connection")
 	}
 
@@ -140,6 +170,7 @@ func (c *Connection) Close() error {
 	}
 
 	c.closed = true
+	c.cancel() // Cancel context to signal shutdown
 	return c.conn.Close()
 }
 
@@ -183,6 +214,46 @@ func (c *Connection) Stats() ConnectionStats {
 		RemoteAddr:   c.RemoteAddr().String(),
 		Closed:       c.closed,
 	}
+}
+
+// Context returns the connection's context
+func (c *Connection) Context() context.Context {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.ctx
+}
+
+// isConnectionClosedError checks if the error indicates a closed connection
+func isConnectionClosedError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Check for common connection closed errors
+	if err == io.EOF {
+		return true
+	}
+
+	// Check for network errors
+	if netErr, ok := err.(net.Error); ok {
+		if netErr.Timeout() {
+			return false // Timeout is not necessarily a closed connection
+		}
+	}
+
+	// Check for syscall errors
+	if opErr, ok := err.(*net.OpError); ok {
+		if opErr.Err == syscall.ECONNRESET || opErr.Err == syscall.EPIPE {
+			return true
+		}
+	}
+
+	// Check error message for common patterns
+	errorMsg := strings.ToLower(err.Error())
+	return strings.Contains(errorMsg, "connection reset") ||
+		strings.Contains(errorMsg, "broken pipe") ||
+		strings.Contains(errorMsg, "connection closed") ||
+		strings.Contains(errorMsg, "use of closed network connection")
 }
 
 // ConnectionStats holds connection statistics

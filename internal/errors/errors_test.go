@@ -2,6 +2,7 @@ package errors
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -328,7 +329,31 @@ func TestPredefinedErrors(t *testing.T) {
 }
 
 func TestStackTraceCapture(t *testing.T) {
-	t.Skip("Skipping stack trace test - behavior varies across Go versions and environments")
+	err := NewError(ErrorTypeInternal, SeverityHigh, "INT001", "Test error")
+
+	if len(err.StackTrace) == 0 {
+		t.Error("Expected stack trace to be captured")
+	}
+
+	// Check that stack trace contains this test function
+	found := false
+	for _, frame := range err.StackTrace {
+		if strings.Contains(frame, "errors_test.go") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Error("Expected stack trace to contain test file reference")
+	}
+
+	// Verify stack trace format (file:line)
+	for _, frame := range err.StackTrace {
+		if !strings.Contains(frame, ":") {
+			t.Errorf("Invalid stack trace frame format: %s", frame)
+		}
+	}
 }
 
 func TestTimestamp(t *testing.T) {
