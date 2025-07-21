@@ -160,9 +160,6 @@ jobs:
           - goos: linux
             goarch: amd64
             artifact: gocat-linux-amd64
-          - goos: linux
-            goarch: arm64
-            artifact: gocat-linux-arm64
           - goos: darwin
             goarch: amd64
             artifact: gocat-darwin-amd64
