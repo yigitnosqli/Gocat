@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -142,6 +143,10 @@ func (v *InputValidator) SanitizeCommand(command string) (string, error) {
 	dangerous := []string{
 		";", "&", "|", "`", "$(", "${", "<(", ">(",
 		"rm ", "del ", "format ", "mkfs", "dd if=",
+		"sudo ", "su ", "chmod ", "chown ", "passwd ",
+		">>", ">", "<", "*", "?", "[", "]",
+		"../", "./", "/etc/", "/bin/", "/usr/",
+		"wget ", "curl ", "nc ", "netcat ", "telnet ",
 	}
 
 	for _, danger := range dangerous {
@@ -150,11 +155,24 @@ func (v *InputValidator) SanitizeCommand(command string) (string, error) {
 		}
 	}
 
+	// Additional regex checks for shell metacharacters
+	shellMetaRegex := regexp.MustCompile(`[\$\\(\)\{\}\[\]\|\&\;\<\>\*\?\~]`)
+	if shellMetaRegex.MatchString(command) {
+		return "", fmt.Errorf("command contains shell metacharacters")
+	}
+
+	// Only allow alphanumeric, spaces, hyphens, underscores, dots, forward slashes, and @ symbol
+	allowedRegex := regexp.MustCompile(`^[a-zA-Z0-9\s\-_\./@ ]+$`)
+	if !allowedRegex.MatchString(command) {
+		return "", fmt.Errorf("command contains invalid characters")
+	}
+
 	return command, nil
 }
 
 // RateLimiter provides rate limiting functionality
 type RateLimiter struct {
+	mu          sync.RWMutex
 	requests    map[string][]time.Time
 	maxRequests int
 	window      time.Duration
@@ -171,6 +189,9 @@ func NewRateLimiter(maxRequests int, window time.Duration) *RateLimiter {
 
 // Allow checks if a request from the given identifier is allowed
 func (rl *RateLimiter) Allow(identifier string) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
 	now := time.Now()
 
 	// Clean old requests

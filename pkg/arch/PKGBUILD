@@ -16,11 +16,11 @@ optdepends=(
 makedepends=('go')
 conflicts=('netcat' 'openbsd-netcat')
 provides=('netcat')
-source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v1.tar.gz")
-sha256sums=('c05fe405a4603073b12046557a2f4fb861b47cdaf02aa8c0305a73d623e44ae4')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed')  # Updated with actual release hash
 
 # Color output for build process
-if [[ -z "${BLUE:-}" ]]; then
+if [[ -z "${BLUE:-}" ]]; then   
     readonly BLUE='\033[0;34m'
     readonly GREEN='\033[0;32m'
     readonly YELLOW='\033[1;33m'
@@ -111,9 +111,11 @@ build() {
     # Build flags for optimization
     local ldflags="
         -s -w
-        -X main.version=$pkgver
-        -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-        -X main.gitCommit=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')
+        -X github.com/ibrahmsql/gocat/cmd.version=$pkgver
+        -X github.com/ibrahmsql/gocat/cmd.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        -X github.com/ibrahmsql/gocat/cmd.gitCommit=$(git rev-parse --short HEAD 2>/dev/null || echo 'arch-build')
+        -X github.com/ibrahmsql/gocat/cmd.gitBranch=main
+        -X github.com/ibrahmsql/gocat/cmd.builtBy=makepkg
     "
     
     # Build the binary
