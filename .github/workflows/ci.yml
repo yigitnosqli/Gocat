@@ -82,7 +82,7 @@ jobs:
       run: |
         echo "✅ Testing binary functionality..."
         ./gocat --help
-        ./gocat --version || ./gocat -v || echo "Version flag not implemented yet"
+        ./gocat version
       shell: bash
 
   # 🔒 Security Scan

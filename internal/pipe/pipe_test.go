@@ -2,6 +2,7 @@ package pipe
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"strings"
@@ -10,7 +11,7 @@ import (
 	"time"
 )
 
-// mockReadWriter implements io.ReadWriter for testing with separate read/write buffers
+// mockReadWriter implements io.ReadWriter for testing with thread-safe operations
 type mockReadWriter struct {
 	mu       sync.RWMutex  // protects all fields
 	buf      *bytes.Buffer // for reading
@@ -18,6 +19,7 @@ type mockReadWriter struct {
 	readErr  error
 	writeErr error
 	closeErr error
+	closed   bool // track if connection is closed
 }
 
 func newMockReadWriter(data string) *mockReadWriter {
@@ -30,6 +32,10 @@ func newMockReadWriter(data string) *mockReadWriter {
 func (m *mockReadWriter) Read(p []byte) (n int, err error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
+	if m.closed {
+		return 0, io.EOF
+	}
 	if m.readErr != nil {
 		return 0, m.readErr
 	}
@@ -39,6 +45,10 @@ func (m *mockReadWriter) Read(p []byte) (n int, err error) {
 func (m *mockReadWriter) Write(p []byte) (n int, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	if m.closed {
+		return 0, errors.New("write on closed connection")
+	}
 	if m.writeErr != nil {
 		return 0, m.writeErr
 	}
@@ -46,8 +56,10 @@ func (m *mockReadWriter) Write(p []byte) (n int, err error) {
 }
 
 func (m *mockReadWriter) Close() error {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.closed = true
 	return m.closeErr
 }
 
@@ -56,6 +68,20 @@ func (m *mockReadWriter) String() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.writeBuf.String()
+}
+
+// SetReadError sets an error to be returned by Read
+func (m *mockReadWriter) SetReadError(err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.readErr = err
+}
+
+// SetWriteError sets an error to be returned by Write
+func (m *mockReadWriter) SetWriteError(err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.writeErr = err
 }
 
 // mockFlushWriter implements io.Writer with Flush method
@@ -224,7 +250,7 @@ func TestPipeWithBufferReadError(t *testing.T) {
 func TestPipeWithBufferWriteError(t *testing.T) {
 	src := newMockReader("test data")
 
-	// Simulate write error by using a custom writer that always returns an error
+	// Test write error by using a custom writer that always returns an error
 	errorWriter := &errorWriter{}
 
 	err := PipeWithBuffer(errorWriter, src, 1024)
@@ -242,46 +268,36 @@ func (e *errorWriter) Write(p []byte) (n int, err error) {
 
 // Test PipeData function with mock connections
 func TestPipeDataBasic(t *testing.T) {
-	// Skip this test when running with race detector due to intentional race conditions in mock
-	if testing.Short() {
-		t.Skip("Skipping race-prone test in short mode")
-	}
+	// Test PipeData with proper context cancellation
+	conn1 := newMockReadWriter("Hello from conn1")
+	conn2 := newMockReadWriter("Hello from conn2")
 
-	// Create separate buffers for each connection to avoid race conditions
-	conn1 := &mockReadWriter{
-		buf:      bytes.NewBufferString("Hello from conn1"),
-		writeBuf: &bytes.Buffer{},
-	}
-	conn2 := &mockReadWriter{
-		buf:      bytes.NewBufferString("Hello from conn2"),
-		writeBuf: &bytes.Buffer{},
-	}
+	// Use context with timeout for proper cleanup
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
 
-	// Use a timeout to prevent the test from hanging
-	done := make(chan bool)
+	// Test PipeDataWithContext instead of PipeData to avoid os.Exit issues
+	done := make(chan bool, 1)
 	go func() {
 		defer func() {
-			if r := recover(); r != nil {
-				// Expected panic from os.Exit(0)
-				t.Logf("Recovered from panic: %v", r)
-			}
 			done <- true
 		}()
-		PipeData(conn1, conn2)
+		PipeDataWithContext(ctx, conn1, conn2)
 	}()
 
 	// Wait for completion or timeout
 	select {
 	case <-done:
-		// Function completed
-	case <-time.After(50 * time.Millisecond):
-		// Timeout - this is expected as PipeData runs indefinitely
+		// Function completed normally
+	case <-time.After(200 * time.Millisecond):
+		t.Error("Test timed out - PipeData should have completed")
 	}
 
-	// Note: Due to the nature of PipeData (it runs indefinitely and exits on EOF),
-	// we can't easily test the actual data transfer without modifying the function
-	// to not call os.Exit(). This test mainly ensures the function doesn't panic
-	// immediately.
+	// Verify that data was transferred (at least partially)
+	// Since we're using context cancellation, we might not get all data
+	if conn1.String() == "" && conn2.String() == "" {
+		t.Error("No data was transferred between connections")
+	}
 }
 
 // Benchmark tests

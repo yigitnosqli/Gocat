@@ -102,11 +102,25 @@ func NewConnection(conn net.Conn, options *ConnectionOptions) *Connection {
 
 // Read reads data from the connection
 func (c *Connection) Read(b []byte) (int, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error("Panic in Connection.Read: %v", r)
+		}
+	}()
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.closed {
 		return 0, errors.NetworkError("NET007", "Connection is closed").WithUserFriendly("Connection has been closed")
+	}
+
+	// Check if context is cancelled
+	select {
+	case <-c.ctx.Done():
+		c.closed = true
+		return 0, errors.NetworkError("NET013", "Connection context cancelled").WithUserFriendly("Connection was cancelled")
+	default:
 	}
 
 	// Set read deadline if configured
@@ -121,6 +135,7 @@ func (c *Connection) Read(b []byte) (int, error) {
 		// Mark connection as closed on certain errors
 		if isConnectionClosedError(err) {
 			c.closed = true
+			c.cancel() // Cancel context to signal shutdown
 		}
 		return n, errors.WrapError(err, errors.ErrorTypeNetwork, errors.SeverityHigh, "NET008", "Failed to read from connection")
 	}
@@ -132,11 +147,25 @@ func (c *Connection) Read(b []byte) (int, error) {
 
 // Write writes data to the connection
 func (c *Connection) Write(b []byte) (int, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error("Panic in Connection.Write: %v", r)
+		}
+	}()
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.closed {
 		return 0, errors.NetworkError("NET009", "Connection is closed").WithUserFriendly("Connection has been closed")
+	}
+
+	// Check if context is cancelled
+	select {
+	case <-c.ctx.Done():
+		c.closed = true
+		return 0, errors.NetworkError("NET014", "Connection context cancelled").WithUserFriendly("Connection was cancelled")
+	default:
 	}
 
 	// Set write deadline if configured
@@ -151,6 +180,7 @@ func (c *Connection) Write(b []byte) (int, error) {
 		// Mark connection as closed on certain errors
 		if isConnectionClosedError(err) {
 			c.closed = true
+			c.cancel() // Cancel context to signal shutdown
 		}
 		return n, errors.WrapError(err, errors.ErrorTypeNetwork, errors.SeverityHigh, "NET010", "Failed to write to connection")
 	}

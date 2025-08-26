@@ -273,7 +273,7 @@ func TestSignalHandlerExecution(t *testing.T) {
 	// Allow setup time
 	time.Sleep(10 * time.Millisecond)
 
-	// Simulate signal
+	// Send test signal
 	pid := os.Getpid()
 	if process, err := os.FindProcess(pid); err == nil {
 		if err := process.Signal(os.Interrupt); err != nil {

@@ -179,13 +179,8 @@ func (m Model) renderActiveConnections() string {
 	connections.WriteString("\n")
 
 	if m.listening {
-		// Sample connections
-		sampleConnections := []Connection{
-			{ID: "conn-001", RemoteIP: "192.168.1.100", Port: "8080", Protocol: "TCP", StartTime: time.Now().Add(-5 * time.Minute), Status: "Active"},
-			{ID: "conn-002", RemoteIP: "10.0.0.50", Port: "8080", Protocol: "TCP", StartTime: time.Now().Add(-2 * time.Minute), Status: "Active"},
-		}
-
-		for _, conn := range sampleConnections {
+		// Display real connections
+		for _, conn := range m.listenState.connections {
 			duration := time.Since(conn.StartTime).Round(time.Second)
 			connInfo := fmt.Sprintf("● %s:%s (%s) - %s - %v",
 				conn.RemoteIP, conn.Port, conn.Protocol, conn.Status, duration)
@@ -209,15 +204,8 @@ func (m Model) renderLiveLogs() string {
 	logs.WriteString("\n")
 
 	if m.listening {
-		// Sample log messages
-		sampleLogs := []LogMessage{
-			{Timestamp: time.Now().Add(-3 * time.Minute), Level: "INFO", Message: "Server started on port 8080"},
-			{Timestamp: time.Now().Add(-2 * time.Minute), Level: "INFO", Message: "New connection from 192.168.1.100"},
-			{Timestamp: time.Now().Add(-1 * time.Minute), Level: "INFO", Message: "Data received: 1024 bytes"},
-			{Timestamp: time.Now().Add(-30 * time.Second), Level: "INFO", Message: "New connection from 10.0.0.50"},
-		}
-
-		for _, log := range sampleLogs {
+		// Display real log messages
+		for _, log := range m.listenState.logMessages {
 			timestamp := log.Timestamp.Format("15:04:05")
 			var levelStyle lipgloss.Style
 			switch log.Level {

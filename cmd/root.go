@@ -113,8 +113,9 @@ func isTerminal() bool {
 }
 
 var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Show version information",
+	Use:     "version",
+	Aliases: []string{"v"},
+	Short:   "Show version information",
 	Run: func(cmd *cobra.Command, args []string) {
 		showVersion()
 	},

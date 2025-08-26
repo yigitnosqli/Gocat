@@ -3,7 +3,11 @@ package websocket
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
+	"os"
+	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -43,6 +47,8 @@ type WebSocketConnection struct {
 	LastPing time.Time
 	UserData map[string]interface{}
 	mu       sync.RWMutex
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
 // WebSocketConfig holds WebSocket server configuration
@@ -69,30 +75,73 @@ func DefaultWebSocketConfig() *WebSocketConfig {
 		WriteWait:         10 * time.Second,
 		MaxMessageSize:    512,
 		EnableCompression: true,
-		// CheckOrigin is critical for WebSocket security in production environments.
-		// This function validates the Origin header to prevent Cross-Site WebSocket Hijacking (CSWSH) attacks.
-		//
-		// SECURITY WARNING: The current implementation rejects all origins by default.
-		// For production use, you MUST configure this based on your deployment:
-		//
-		// 1. For same-origin only: Check if r.Header.Get("Origin") matches your domain
-		// 2. For specific domains: Maintain a whitelist of allowed origins
-		// 3. For development: You may temporarily allow localhost/127.0.0.1
-		//
-		// Example implementations:
-		// - Same origin: return r.Header.Get("Origin") == "https://yourdomain.com"
-		// - Whitelist: allowedOrigins := []string{"https://app.com", "https://admin.app.com"}
-		//             origin := r.Header.Get("Origin")
-		//             for _, allowed := range allowedOrigins { if origin == allowed { return true } }
-		//             return false
-		// - Development: return strings.Contains(r.Header.Get("Origin"), "localhost") ||
-		//                      strings.Contains(r.Header.Get("Origin"), "127.0.0.1")
-		CheckOrigin: func(r *http.Request) bool {
-			// SECURE DEFAULT: Reject all origins
-			// TODO: Configure this function based on your deployment requirements
-			return false
-		},
+		// CheckOrigin implements secure origin validation to prevent CSWSH attacks
+		CheckOrigin: createSecureOriginChecker(),
 	}
+}
+
+// createSecureOriginChecker creates a secure origin validation function
+func createSecureOriginChecker() func(r *http.Request) bool {
+	return func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		host := r.Host
+
+		// If no origin header, allow (some browsers don't send it for same-origin)
+		if origin == "" {
+			return true
+		}
+
+		// Parse the origin URL
+		originURL, err := url.Parse(origin)
+		if err != nil {
+			return false
+		}
+
+		// Allow same-origin requests
+		if originURL.Host == host {
+			return true
+		}
+
+		// Allow localhost and 127.0.0.1 for development
+		if isLocalhost(originURL.Host) {
+			return true
+		}
+
+		// Check environment variable for additional allowed origins
+		allowedOrigins := os.Getenv("GOCAT_ALLOWED_ORIGINS")
+		if allowedOrigins != "" {
+			for _, allowed := range strings.Split(allowedOrigins, ",") {
+				allowed = strings.TrimSpace(allowed)
+				if origin == allowed {
+					return true
+				}
+			}
+		}
+
+		// Reject all other origins
+		return false
+	}
+}
+
+// isLocalhost checks if the host is localhost, 127.0.0.1, or ::1
+func isLocalhost(host string) bool {
+	// Handle IPv6 bracket notation [::1]:port
+	if strings.HasPrefix(host, "[") && strings.Contains(host, "]") {
+		bracketEnd := strings.Index(host, "]")
+		host = host[1:bracketEnd]
+	} else {
+		// Remove port if present for IPv4 and hostname
+		if colonIndex := strings.LastIndex(host, ":"); colonIndex != -1 {
+			// Check if this is IPv6 without brackets (contains multiple colons)
+			if strings.Count(host, ":") == 1 {
+				// Single colon, likely IPv4:port or hostname:port
+				host = host[:colonIndex]
+			}
+			// For IPv6 without brackets, keep the full address
+		}
+	}
+
+	return host == "localhost" || host == "127.0.0.1" || host == "::1"
 }
 
 // NewWebSocketServer creates a new WebSocket server
@@ -141,6 +190,9 @@ func (s *WebSocketServer) HandleWebSocket(w http.ResponseWriter, r *http.Request
 	// Generate unique connection ID
 	connID := fmt.Sprintf("%s_%d", r.RemoteAddr, time.Now().UnixNano())
 
+	// Create context for this connection
+	ctx, cancel := context.WithCancel(s.ctx)
+
 	client := &WebSocketConnection{
 		ID:       connID,
 		Conn:     conn,
@@ -148,6 +200,8 @@ func (s *WebSocketServer) HandleWebSocket(w http.ResponseWriter, r *http.Request
 		Server:   s,
 		LastPing: time.Now(),
 		UserData: make(map[string]interface{}),
+		ctx:      ctx,
+		cancel:   cancel,
 	}
 
 	s.register <- client
@@ -164,6 +218,17 @@ func (s *WebSocketServer) HandleWebSocket(w http.ResponseWriter, r *http.Request
 
 // run handles the main server loop
 func (s *WebSocketServer) run() {
+	defer func() {
+		if r := recover(); r != nil {
+			s.logger.ErrorWithFields("Panic in WebSocket server run loop", map[string]interface{}{
+				"panic": r,
+			})
+			// Restart the run loop after a brief delay
+			time.Sleep(time.Second)
+			go s.run()
+		}
+	}()
+
 	for {
 		select {
 		case <-s.ctx.Done():
@@ -315,6 +380,13 @@ func (s *WebSocketServer) Shutdown() error {
 // readPump pumps messages from the websocket connection to the hub
 func (c *WebSocketConnection) readPump() {
 	defer func() {
+		if r := recover(); r != nil {
+			c.Server.logger.ErrorWithFields("Panic in WebSocket readPump", map[string]interface{}{
+				"connection_id": c.ID,
+				"panic":         r,
+			})
+		}
+		c.cancel() // Cancel context to stop writePump
 		c.Server.unregister <- c
 		c.Conn.Close()
 	}()
@@ -328,26 +400,43 @@ func (c *WebSocketConnection) readPump() {
 	})
 
 	for {
-		_, message, err := c.Conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				c.Server.logger.ErrorWithFields("WebSocket read error", map[string]interface{}{
-					"connection_id": c.ID,
-					"error":         err.Error(),
-				})
+		select {
+		case <-c.ctx.Done():
+			return
+		default:
+			// Set a short read deadline to allow context checking
+			c.Conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+			_, message, err := c.Conn.ReadMessage()
+			if err != nil {
+				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+					// Timeout is expected, continue to check context
+					continue
+				}
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					c.Server.logger.ErrorWithFields("WebSocket read error", map[string]interface{}{
+						"connection_id": c.ID,
+						"error":         err.Error(),
+					})
+				}
+				return
 			}
-			break
-		}
 
-		c.Server.metrics.AddBytesReceived(int64(len(message)))
+			// Reset read deadline for pong wait
+			c.Conn.SetReadDeadline(time.Now().Add(c.Server.config.PongWait))
+			c.Server.metrics.AddBytesReceived(int64(len(message)))
 
-		// Echo the message back (can be customized)
-		// Determine message type based on content (simple heuristic)
-		msgType := websocket.TextMessage
-		if !isTextMessage(message) {
-			msgType = websocket.BinaryMessage
+			// Echo the message back (can be customized)
+			// Determine message type based on content (simple heuristic)
+			msgType := websocket.TextMessage
+			if !isTextMessage(message) {
+				msgType = websocket.BinaryMessage
+			}
+			select {
+			case c.Send <- WebSocketMessage{Data: message, Type: msgType}:
+			case <-c.ctx.Done():
+				return
+			}
 		}
-		c.Send <- WebSocketMessage{Data: message, Type: msgType}
 	}
 }
 
@@ -355,12 +444,20 @@ func (c *WebSocketConnection) readPump() {
 func (c *WebSocketConnection) writePump() {
 	ticker := time.NewTicker(c.Server.config.PingPeriod)
 	defer func() {
+		if r := recover(); r != nil {
+			c.Server.logger.ErrorWithFields("Panic in WebSocket writePump", map[string]interface{}{
+				"connection_id": c.ID,
+				"panic":         r,
+			})
+		}
 		ticker.Stop()
 		c.Conn.Close()
 	}()
 
 	for {
 		select {
+		case <-c.ctx.Done():
+			return
 		case message, ok := <-c.Send:
 			c.Conn.SetWriteDeadline(time.Now().Add(c.Server.config.WriteWait))
 			if !ok {
@@ -439,6 +536,7 @@ func (c *WebSocketConnection) writePump() {
 
 // Close closes the WebSocket connection
 func (c *WebSocketConnection) Close() error {
+	c.cancel() // Cancel context to stop goroutines
 	return c.Conn.Close()
 }
 

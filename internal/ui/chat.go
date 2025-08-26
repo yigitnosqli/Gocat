@@ -43,8 +43,14 @@ func (m Model) updateChat(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		// Send message
 		if strings.TrimSpace(m.input) != "" {
-			// Add message to chat (simulated)
-			m.messages = append(m.messages, "You: "+m.input)
+			// Add real message using ChatMessage struct
+			newMessage := ChatMessage{
+				Timestamp: time.Now(),
+				Sender:    "You",
+				Message:   m.input,
+				IsLocal:   true,
+			}
+			m.chatState.messages = append(m.chatState.messages, newMessage)
 			m.input = ""
 			m.setSuccess("Message sent")
 		}
@@ -143,23 +149,15 @@ func (m Model) renderChatMessages() string {
 	// Create a box for messages
 	messageBox := BoxStyle.Width(60).Height(10)
 
-	if len(m.messages) == 0 {
+	if len(m.chatState.messages) == 0 {
 		// No messages yet
 		emptyMsg := MutedStyle.Render("No messages yet. Start typing to send a message!")
 		messageContent := lipgloss.NewStyle().Padding(2).Render(emptyMsg)
 		messages.WriteString(messageBox.Render(messageContent))
 	} else {
-		// Sample chat messages
-		sampleMessages := []ChatMessage{
-			{Timestamp: time.Now().Add(-10 * time.Minute), Sender: "Remote", Message: "Hello! Connection established.", IsLocal: false},
-			{Timestamp: time.Now().Add(-9 * time.Minute), Sender: "You", Message: "Hi there! Great to connect.", IsLocal: true},
-			{Timestamp: time.Now().Add(-8 * time.Minute), Sender: "Remote", Message: "How can I help you today?", IsLocal: false},
-			{Timestamp: time.Now().Add(-7 * time.Minute), Sender: "You", Message: "Just testing the chat functionality.", IsLocal: true},
-			{Timestamp: time.Now().Add(-5 * time.Minute), Sender: "Remote", Message: "Looks like it's working perfectly!", IsLocal: false},
-		}
-
+		// Display real chat messages
 		var messageContent strings.Builder
-		for _, msg := range sampleMessages {
+		for _, msg := range m.chatState.messages {
 			timestamp := msg.Timestamp.Format("15:04")
 			var msgStyle lipgloss.Style
 			var prefix string
@@ -245,10 +243,19 @@ func (m Model) renderChatStats() string {
 	stats.WriteString(statsTitle)
 	stats.WriteString("\n")
 
-	// Sample statistics
-	messageCount := MutedStyle.Render("  Messages sent: 12")
-	bytesTransferred := MutedStyle.Render("  Bytes transferred: 2.4 KB")
-	sessionTime := MutedStyle.Render("  Session time: 15m 32s")
+	// Calculate real statistics
+	messageCount := MutedStyle.Render(fmt.Sprintf("  Messages sent: %d", len(m.chatState.messages)))
+
+	// Calculate bytes transferred (approximate)
+	var totalBytes int64
+	for _, msg := range m.chatState.messages {
+		totalBytes += int64(len(msg.Message) + len(msg.Sender) + 20) // +20 for timestamp and formatting
+	}
+	bytesTransferred := MutedStyle.Render(fmt.Sprintf("  Bytes transferred: %d B", totalBytes))
+
+	// Calculate session time
+	sessionDuration := time.Since(m.lastActivity).Round(time.Second)
+	sessionTime := MutedStyle.Render(fmt.Sprintf("  Session time: %v", sessionDuration))
 
 	stats.WriteString(messageCount)
 	stats.WriteString("\n")

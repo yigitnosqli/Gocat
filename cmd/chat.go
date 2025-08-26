@@ -89,10 +89,20 @@ func startChatServer(port string) error {
 }
 
 func handleChatClient(conn net.Conn) {
-	defer conn.Close()
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error("Panic in handleChatClient: %v", r)
+		}
+		if err := conn.Close(); err != nil {
+			logger.Error("Error closing chat connection: %v", err)
+		}
+	}()
 
 	// Welcome message and nickname prompt
-	conn.Write([]byte(fmt.Sprintf("Welcome to %s!\nPlease enter your nickname: ", chatRoomName)))
+	if _, err := conn.Write([]byte(fmt.Sprintf("Welcome to %s!\nPlease enter your nickname: ", chatRoomName))); err != nil {
+		logger.Error("Failed to send welcome message: %v", err)
+		return
+	}
 
 	// Read nickname
 	reader := bufio.NewReader(conn)
@@ -106,7 +116,7 @@ func handleChatClient(conn net.Conn) {
 		nickname = fmt.Sprintf("Guest-%d", time.Now().Unix()%10000)
 	}
 
-	// Check if nickname is already taken
+	// Check if nickname is already taken and register client atomically
 	chatMutex.Lock()
 	originalNick := nickname
 	counter := 1
@@ -135,7 +145,14 @@ func handleChatClient(conn net.Conn) {
 	chatMutex.Unlock()
 
 	// Notify about successful join
-	conn.Write([]byte(fmt.Sprintf("You joined as '%s'. Type /help for commands.\n", nickname)))
+	if _, err := conn.Write([]byte(fmt.Sprintf("You joined as '%s'. Type /help for commands.\n", nickname))); err != nil {
+		logger.Error("Failed to send join confirmation: %v", err)
+		// Remove client from map since we couldn't confirm join
+		chatMutex.Lock()
+		delete(chatClients, clientID)
+		chatMutex.Unlock()
+		return
+	}
 	broadcastMessage(fmt.Sprintf("*** %s joined the chat ***", nickname), "")
 
 	logger.Info("Chat user '%s' joined from %s", nickname, conn.RemoteAddr())
@@ -216,13 +233,28 @@ func handleChatCommand(client *ChatClient, command string) {
 
 func broadcastMessage(message string, excludeClientID string) {
 	chatMutex.RLock()
-	defer chatMutex.RUnlock()
+	// Create a copy of clients to avoid holding lock during network operations
+	clients := make(map[string]*ChatClient)
+	for id, client := range chatClients {
+		if id != excludeClientID {
+			clients[id] = client
+		}
+	}
+	chatMutex.RUnlock()
 
-	for clientID, client := range chatClients {
-		if clientID != excludeClientID {
-			if _, err := client.Conn.Write([]byte(message + "\n")); err != nil {
-				logger.Error("Failed to send message to %s: %v", client.Nickname, err)
+	// Send messages without holding the lock
+	for clientID, client := range clients {
+		if _, err := client.Conn.Write([]byte(message + "\n")); err != nil {
+			logger.Warn("Failed to send message to client %s: %v", clientID, err)
+			// Remove failed client from the map
+			chatMutex.Lock()
+			if _, exists := chatClients[clientID]; exists {
+				delete(chatClients, clientID)
+				if closeErr := client.Conn.Close(); closeErr != nil {
+					logger.Error("Error closing failed client connection: %v", closeErr)
+				}
 			}
+			chatMutex.Unlock()
 		}
 	}
 }

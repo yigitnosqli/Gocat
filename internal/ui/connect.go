@@ -37,9 +37,14 @@ func (m Model) updateConnect(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// you'd track which field is focused
 
 	case "enter":
-		// Attempt connection
-		m.setSuccess("Attempting to connect...")
+		// Attempt connection with validation
+		if strings.TrimSpace(m.input) == "" {
+			m.errorMsg = "Please enter a valid host:port"
+			return m, nil
+		}
+		m.setSuccess("Attempting to connect to " + m.input + "...")
 		m.connected = true
+		m.connectionInfo = "Connected to " + m.input
 		return m, nil
 
 	default:

@@ -97,7 +97,7 @@ func TestConnectionTimeout(t *testing.T) {
 	// Use local timeout variable to avoid race conditions
 	testTimeout := 50 * time.Millisecond
 
-	// Create a mock connection that simulates timeout behavior
+	// Create a test connection that demonstrates timeout behavior
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)

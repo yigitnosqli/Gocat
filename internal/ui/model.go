@@ -21,6 +21,13 @@ const (
 	ModeHelp
 )
 
+// BrokerState represents the state of the broker mode
+type BrokerState struct {
+	connections []BrokerConnection
+	isListening bool
+	port        string
+}
+
 // Model represents the main application state
 type Model struct {
 	mode           AppMode
@@ -31,6 +38,10 @@ type Model struct {
 	input          string
 	cursor         int
 	messages       []string
+	chatState      ChatState
+	brokerState    BrokerState
+	scanState      ScanState
+	listenState    ListenState
 	status         string
 	connected      bool
 	listening      bool

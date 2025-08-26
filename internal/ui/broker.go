@@ -169,15 +169,9 @@ func (m Model) renderBrokerConnections() string {
 	connections.WriteString(connTitle)
 	connections.WriteString("\n")
 
-	if m.listening {
-		// Sample broker connections
-		sampleConnections := []BrokerConnection{
-			{ID: "broker-001", ClientA: "192.168.1.100:45678", ClientB: "localhost:9090", Status: "Active", Started: time.Now().Add(-10 * time.Minute), Bytes: 1024000},
-			{ID: "broker-002", ClientA: "10.0.0.50:33445", ClientB: "localhost:9090", Status: "Active", Started: time.Now().Add(-5 * time.Minute), Bytes: 512000},
-			{ID: "broker-003", ClientA: "172.16.0.25:55123", ClientB: "localhost:9090", Status: "Idle", Started: time.Now().Add(-2 * time.Minute), Bytes: 256000},
-		}
-
-		for _, conn := range sampleConnections {
+	if m.brokerState.isListening {
+		// Display real broker connections
+		for _, conn := range m.brokerState.connections {
 			duration := time.Since(conn.Started).Round(time.Second)
 			bytesFormatted := formatBytes(conn.Bytes)
 
@@ -213,12 +207,23 @@ func (m Model) renderBrokerStats() string {
 	stats.WriteString(statsTitle)
 	stats.WriteString("\n")
 
-	if m.listening {
-		// Sample statistics
-		totalConnections := MutedStyle.Render("  Total connections: 15")
-		activeConnections := SuccessStyle.Render("  Active connections: 3")
-		totalBytes := MutedStyle.Render("  Total bytes transferred: 15.2 MB")
-		uptime := MutedStyle.Render("  Broker uptime: 2h 15m")
+	if m.brokerState.isListening {
+		// Calculate real statistics
+		totalConns := len(m.brokerState.connections)
+		activeConns := 0
+		var totalBytesTransferred int64
+
+		for _, conn := range m.brokerState.connections {
+			if conn.Status == "Active" {
+				activeConns++
+			}
+			totalBytesTransferred += conn.Bytes
+		}
+
+		totalConnections := MutedStyle.Render(fmt.Sprintf("  Total connections: %d", totalConns))
+		activeConnections := SuccessStyle.Render(fmt.Sprintf("  Active connections: %d", activeConns))
+		totalBytes := MutedStyle.Render(fmt.Sprintf("  Total bytes transferred: %s", formatBytes(totalBytesTransferred)))
+		uptime := MutedStyle.Render(fmt.Sprintf("  Broker uptime: %v", time.Since(m.lastActivity).Round(time.Second)))
 
 		stats.WriteString(totalConnections)
 		stats.WriteString("\n")
