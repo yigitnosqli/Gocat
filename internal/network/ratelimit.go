@@ -17,7 +17,7 @@ type RateLimiter struct {
 	burst   int
 }
 
-// NewRateLimiter creates a new rate limiter with specified rate
+// with a minimum of 1024 bytes.
 func NewRateLimiter(rateStr string) (*RateLimiter, error) {
 	if rateStr == "" {
 		return nil, nil // No rate limiting
@@ -40,7 +40,13 @@ func NewRateLimiter(rateStr string) (*RateLimiter, error) {
 	}, nil
 }
 
-// parseRateString parses rate strings like "1MB/s", "500KB/s", "1.5MB/s"
+// parseRateString parses a human-friendly rate string (e.g. "1MB/s", "500KB/s", "1.5MB/s")
+// and returns the equivalent bytes-per-second value.
+//
+// The input is case-insensitive and may optionally end with "/s". If no unit is
+// supplied the value is interpreted as bytes. Supported units are B/BYTE/BYTES,
+// K/KB/KBYTE/KBYTES (1024), M/MB/MBYTE/MBYTES (1024^2) and G/GB/GBYTE/GBYTES (1024^3).
+// Returns an error if the numeric portion cannot be parsed or the unit is unknown.
 func parseRateString(rateStr string) (int64, error) {
 	rateStr = strings.ToUpper(strings.TrimSpace(rateStr))
 	
@@ -116,7 +122,10 @@ type RateLimitedReader struct {
 	ctx     context.Context
 }
 
-// NewRateLimitedReader creates a new rate-limited reader
+// NewRateLimitedReader returns a RateLimitedReader that wraps the provided io.Reader.
+// If limiter is nil the returned reader performs no rate limiting. The returned
+// reader uses context.Background() for limiter waits; use NewRateLimitedReaderWithContext
+// to supply a custom context.
 func NewRateLimitedReader(reader io.Reader, limiter *RateLimiter) *RateLimitedReader {
 	return &RateLimitedReader{
 		reader:  reader,
@@ -125,7 +134,8 @@ func NewRateLimitedReader(reader io.Reader, limiter *RateLimiter) *RateLimitedRe
 	}
 }
 
-// NewRateLimitedReaderWithContext creates a new rate-limited reader with context
+// NewRateLimitedReaderWithContext returns a RateLimitedReader that wraps the provided io.Reader and uses the given context for limiter waits.
+// If limiter is nil the returned reader performs reads without rate limiting.
 func NewRateLimitedReaderWithContext(ctx context.Context, reader io.Reader, limiter *RateLimiter) *RateLimitedReader {
 	return &RateLimitedReader{
 		reader:  reader,
@@ -152,7 +162,9 @@ type RateLimitedWriter struct {
 	ctx     context.Context
 }
 
-// NewRateLimitedWriter creates a new rate-limited writer
+// NewRateLimitedWriter returns a RateLimitedWriter that wraps the provided io.Writer.
+// The returned writer uses a background context for limiter waits. If limiter is nil,
+// writes through without rate limiting.
 func NewRateLimitedWriter(writer io.Writer, limiter *RateLimiter) *RateLimitedWriter {
 	return &RateLimitedWriter{
 		writer:  writer,
@@ -161,7 +173,9 @@ func NewRateLimitedWriter(writer io.Writer, limiter *RateLimiter) *RateLimitedWr
 	}
 }
 
-// NewRateLimitedWriterWithContext creates a new rate-limited writer with context
+// NewRateLimitedWriterWithContext creates a RateLimitedWriter that wraps the provided io.Writer and
+// uses the supplied context for limiter waits. If limiter is nil the returned writer performs no
+// rate limiting.
 func NewRateLimitedWriterWithContext(ctx context.Context, writer io.Writer, limiter *RateLimiter) *RateLimitedWriter {
 	return &RateLimitedWriter{
 		writer:  writer,
@@ -188,7 +202,9 @@ type RateLimitedConn struct {
 	ctx         context.Context
 }
 
-// NewRateLimitedConn creates a new rate-limited connection
+// NewRateLimitedConn returns a RateLimitedConn that wraps conn and applies separate optional rate limits for reads and writes.
+// If readLimiter or writeLimiter is nil, the corresponding direction is not rate limited. The returned connection uses a
+// background context for limiter waits.
 func NewRateLimitedConn(conn io.ReadWriteCloser, readLimiter, writeLimiter *RateLimiter) *RateLimitedConn {
 	return &RateLimitedConn{
 		conn:         conn,
@@ -198,7 +214,9 @@ func NewRateLimitedConn(conn io.ReadWriteCloser, readLimiter, writeLimiter *Rate
 	}
 }
 
-// NewRateLimitedConnWithContext creates a new rate-limited connection with context
+// NewRateLimitedConnWithContext creates a RateLimitedConn that wraps the provided io.ReadWriteCloser
+// and enforces separate read and write rate limits using the given context.
+// If readLimiter or writeLimiter is nil the corresponding direction is not rate limited.
 func NewRateLimitedConnWithContext(ctx context.Context, conn io.ReadWriteCloser, readLimiter, writeLimiter *RateLimiter) *RateLimitedConn {
 	return &RateLimitedConn{
 		conn:         conn,

@@ -44,7 +44,9 @@ type SCTPConfig struct {
 	AutoClose      time.Duration // Auto close timeout
 }
 
-// DefaultSCTPConfig returns default SCTP configuration
+// DefaultSCTPConfig returns a pointer to an SCTPConfig populated with sane defaults:
+// Streams = 10, MaxAttempts = 4, MaxInitTimeout = 60s, Heartbeat = true, Nodelay = false,
+// and AutoClose = 0 (disabled).
 func DefaultSCTPConfig() *SCTPConfig {
 	return &SCTPConfig{
 		Streams:        10,
@@ -91,7 +93,15 @@ func (a *SCTPAddr) String() string {
 	return fmt.Sprintf("[%s]:%d", fmt.Sprintf("%v", ips), a.Port)
 }
 
-// ResolveSCTPAddr resolves SCTP address
+// ResolveSCTPAddr resolves the given SCTP network/address string into an SCTPAddr.
+// 
+// ResolveSCTPAddr accepts network "sctp", "sctp4", or "sctp6" and an address of the
+// form "host:port". If host is empty the returned address will contain the
+// wildcard IP appropriate for the network family (IPv4 or IPv6). Otherwise the
+// host is resolved to one or more IPs and included in the returned SCTPAddr.
+// The returned SCTPAddr.IPs slice may contain multiple entries for multihomed
+// hosts. Errors are returned for unsupported network values, invalid address
+// syntax, unknown ports, or host resolution failures.
 func ResolveSCTPAddr(network, address string) (*SCTPAddr, error) {
 	if network != "sctp" && network != "sctp4" && network != "sctp6" {
 		return nil, fmt.Errorf("unsupported network type: %s", network)
@@ -258,7 +268,19 @@ func (l *SCTPListener) applySCTPOptions(fd int) error {
 	return nil
 }
 
-// ListenSCTP creates an SCTP listener
+// ListenSCTP creates and returns an SCTP listener bound to the given local
+// address and configured according to config.
+//
+// The network must be "sctp", "sctp4", or "sctp6". "sctp" auto-detects the
+// address family from laddr (defaults to IPv4 if indeterminate). If laddr is
+// nil or has no IPs, the listener is bound to all interfaces for the chosen
+// family; laddr.Port is used as the bind port. If config is nil, DefaultSCTPConfig()
+// is used.
+//
+// The function creates a native SCTP socket, enables SO_REUSEADDR, binds it and
+// starts listening. It returns an SCTPListener that must be closed when no
+// longer needed. Errors are returned for unsupported networks or on socket,
+// bind, or listen failures (wrapping the underlying syscall errors).
 func ListenSCTP(network string, laddr *SCTPAddr, config *SCTPConfig) (*SCTPListener, error) {
 	if config == nil {
 		config = DefaultSCTPConfig()
@@ -335,12 +357,21 @@ func ListenSCTP(network string, laddr *SCTPAddr, config *SCTPConfig) (*SCTPListe
 	return listener, nil
 }
 
-// DialSCTP connects to an SCTP address
+// DialSCTP dials an SCTP association to raddr from laddr using the specified network.
+// It is a convenience wrapper around DialSCTPTimeout with a zero timeout (blocking connect).
+// If config is nil, DefaultSCTPConfig is used.
 func DialSCTP(network string, laddr, raddr *SCTPAddr, config *SCTPConfig) (*SCTPConn, error) {
 	return DialSCTPTimeout(network, laddr, raddr, 0, config)
 }
 
-// DialSCTPTimeout connects to an SCTP address with timeout
+// DialSCTPTimeout establishes an SCTP connection to raddr within the given timeout.
+//
+// DialSCTPTimeout chooses the address family from network ("sctp", "sctp4", "sctp6")
+// (for "sctp" it autodetects from raddr.IPs), optionally binds to laddr if provided,
+// and uses a non-blocking connect when timeout > 0 to implement the timeout behavior.
+// If config is nil DefaultSCTPConfig() is used. On success it returns an *SCTPConn
+// with the underlying socket ready for use. Returns an error for unsupported network,
+// address construction failures, bind/connect errors, or when the connection times out.
 func DialSCTPTimeout(network string, laddr, raddr *SCTPAddr, timeout time.Duration, config *SCTPConfig) (*SCTPConn, error) {
 	if config == nil {
 		config = DefaultSCTPConfig()
@@ -451,7 +482,11 @@ func DialSCTPTimeout(network string, laddr, raddr *SCTPAddr, timeout time.Durati
 	return conn, nil
 }
 
-// Helper functions for sockaddr manipulation
+// createSockaddr constructs a syscall.Sockaddr for the given IP, port, and address family.
+// 
+// It returns a *syscall.SockaddrInet4 when family is syscall.AF_INET and the provided IP is IPv4,
+// or a *syscall.SockaddrInet6 when family is syscall.AF_INET6 and the provided IP is IPv6.
+// Returns an error if the IP does not match the requested family or if the family is unsupported.
 func createSockaddr(ip net.IP, port int, family int) (syscall.Sockaddr, error) {
 	switch family {
 	case syscall.AF_INET:
@@ -473,6 +508,9 @@ func createSockaddr(ip net.IP, port int, family int) (syscall.Sockaddr, error) {
 	}
 }
 
+// parseSockaddr converts a syscall.Sockaddr (either *syscall.SockaddrInet4 or
+// *syscall.SockaddrInet6) into an *SCTPAddr containing a single IP and port.
+// Returns an error for unsupported sockaddr types.
 func parseSockaddr(sa syscall.Sockaddr) (*SCTPAddr, error) {
 	switch s := sa.(type) {
 	case *syscall.SockaddrInet4:
@@ -487,7 +525,10 @@ func parseSockaddr(sa syscall.Sockaddr) (*SCTPAddr, error) {
 	}
 }
 
-// IsSCTPSupported checks if SCTP is supported on the system
+// IsSCTPSupported reports whether the platform appears to support SCTP by
+// attempting to create a basic SCTP socket. It returns true if socket
+// creation succeeds and false otherwise; it does not guarantee full SCTP
+// feature availability beyond the ability to open a socket.
 func IsSCTPSupported() bool {
 	// Try to create an SCTP socket
 	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, IPPROTO_SCTP)
