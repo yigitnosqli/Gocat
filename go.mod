@@ -11,8 +11,10 @@ require (
 	github.com/fatih/color v1.15.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/spf13/cobra v1.7.0
+	github.com/yuin/gopher-lua v1.1.1
 	golang.org/x/net v0.10.0
 	golang.org/x/term v0.10.0
+	golang.org/x/time v0.12.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
