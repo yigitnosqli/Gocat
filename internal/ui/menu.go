@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // updateMenu handles menu navigation
@@ -47,48 +46,46 @@ func (m Model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // viewMenu renders the main menu
 func (m Model) viewMenu() string {
-	var content strings.Builder
-
-	// Add title
-	title := TitleStyle.Render("🐱 GoCat")
-	content.WriteString(lipgloss.NewStyle().Width(m.width - 6).Align(lipgloss.Center).Render(title))
-	content.WriteString("\n\n")
-
-	// Add description
-	desc := MutedStyle.Render("A powerful network utility tool with beautiful terminal interface")
-	content.WriteString(lipgloss.NewStyle().Width(m.width - 6).Align(lipgloss.Center).Render(desc))
-	content.WriteString("\n\n")
-
-	// Add menu items
-	for i, item := range m.menuItems {
-		var style lipgloss.Style
+	title := "🐱 GoCat"
+	description := "Network Swiss Army Knife"
+	
+	menuItems := []string{
+		"Connect",
+		"Listen",
+		"Chat",
+		"Broker",
+		"Scan",
+		"Help",
+		"Quit",
+	}
+	
+	var menu strings.Builder
+	
+	// Title
+	menu.WriteString(title + "\n")
+	menu.WriteString(description + "\n\n")
+	
+	// Menu items
+	for i, item := range menuItems {
 		if i == m.selected {
-			style = ActiveButtonStyle
+			menu.WriteString("> " + item + "\n")
 		} else {
-			style = ButtonStyle
+			menu.WriteString("  " + item + "\n")
 		}
-
-		menuItem := style.Render(item)
-		content.WriteString(lipgloss.NewStyle().Width(m.width - 6).Align(lipgloss.Center).Render(menuItem))
-		content.WriteString("\n")
 	}
-
-	// Add some spacing
-	content.WriteString("\n")
-
-	// Add feature highlights
-	highlights := []string{
-		"✨ Beautiful terminal UI with colors",
-		"🚀 Fast and efficient networking",
-		"🔧 Multiple connection modes",
-		"📡 Real-time communication",
-		"🔍 Network scanning capabilities",
+	
+	// Feature highlights
+	menu.WriteString("\n")
+	features := []string{
+		"🔗 TCP/UDP connections",
+		"📡 Port scanning",
+		"💬 Real-time chat",
+		"🔄 Message broker",
 	}
-
-	for _, highlight := range highlights {
-		content.WriteString(InfoStyle.Render("  " + highlight))
-		content.WriteString("\n")
+	
+	for _, feature := range features {
+		menu.WriteString("  " + feature + "\n")
 	}
-
-	return content.String()
+	
+	return menu.String()
 }
