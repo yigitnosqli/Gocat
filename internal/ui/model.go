@@ -1,14 +1,14 @@
 package ui
 
 import (
-	"strings"
+	"fmt"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/ibrahmsql/gocat/internal/readline"
 )
 
-// AppMode represents different modes of the application
+// AppMode represents the current application mode
 type AppMode int
 
 const (
@@ -21,54 +21,132 @@ const (
 	ModeHelp
 )
 
-// BrokerState represents the state of the broker mode
+// BrokerState represents the broker mode state
 type BrokerState struct {
+	port        string
+	protocol    string
 	connections []BrokerConnection
 	isListening bool
-	port        string
+	stats       BrokerStats
 }
 
-// Model represents the main application state
+// BrokerStats represents broker statistics
+type BrokerStats struct {
+	TotalConnections int64
+	ActiveConnections int
+	BytesTransferred int64
+	Uptime          time.Duration
+}
+
+// Model represents the main application model
 type Model struct {
-	mode           AppMode
-	width          int
-	height         int
-	menuItems      []string
-	selected       int
-	input          string
-	cursor         int
-	messages       []string
-	chatState      ChatState
-	brokerState    BrokerState
-	scanState      ScanState
-	listenState    ListenState
-	status         string
-	connected      bool
-	listening      bool
-	showHelp       bool
-	errorMsg       string
-	successMsg     string
+	// Current application mode
+	mode AppMode
+
+	// Common state
+	input       string
+	errorMsg    string
+	successMsg  string
+	connected   bool
 	connectionInfo string
-	lastActivity   time.Time
+	quitting    bool
+
+	// UI dimensions
+	width  int
+	height int
+
+	// Readline editor for advanced input handling
+	readlineEditor *readline.Editor
+	readlineMode   bool
+	historyEnabled bool
+
+	// Mode-specific states (using existing structs)
+	connectState *ConnectState
+	listenState  *ListenState
+	chatState    *ChatState
+	scanState    *ScanState
+	brokerState  *BrokerState
+	
+	// Additional state fields
+	listening    bool
+	lastActivity time.Time
+	messages     []string
+	selected     int
+	menuItems    []string
 }
 
-// NewModel creates a new model with default values
+// NewModel creates a new model instance
 func NewModel() Model {
+	// Initialize readline editor with advanced features
+	readlineEditor := readline.NewEditor()
+	readlineEditor.SetPrompt("gocat> ")
+	readlineEditor.SetMaxHistory(1000)
+	readlineEditor.SetHistoryFile(".gocat_history")
+	readlineEditor.SetIgnoreCase(true)
+	readlineEditor.SetWordBreakChars(" \t\n\r\f\v")
+	
+	// Set up completions for common commands
+	completions := []string{
+		"connect", "listen", "chat", "broker", "scan", "help", "quit", "exit",
+		"clear", "history", "tcp", "udp", "localhost", "127.0.0.1",
+	}
+	readlineEditor.SetCompletions(completions)
+	
 	return Model{
-		mode: ModeMenu,
-		menuItems: []string{
-			"🔗 Connect",
-			"👂 Listen",
-			"💬 Chat",
-			"🔄 Broker",
-			"🔍 Scan",
-			"❓ Help",
-			"🚪 Exit",
+		mode:         ModeMenu,
+		input:        "",
+		errorMsg:     "",
+		successMsg:   "",
+		connected:    false,
+		connectionInfo: "",
+		quitting:     false,
+		width:        80,
+		height:       24,
+		readlineEditor: readlineEditor,
+		readlineMode:   false,
+		historyEnabled: true,
+		connectState: &ConnectState{
+			host:          "",
+			port:          "80",
+			protocol:      "tcp",
+			focused:       0,
+			protocols:     []string{"tcp", "udp"},
+			protocolIndex: 0,
 		},
-		selected:     0,
-		messages:     []string{},
-		status:       "Ready",
+		listenState: &ListenState{
+			port:        "8080",
+			protocol:    "tcp",
+			connections: make([]Connection, 0),
+			logMessages: make([]LogMessage, 0),
+		},
+		chatState: &ChatState{
+			messages:    make([]ChatMessage, 0),
+			inputBuffer: "",
+			connected:   false,
+			remoteHost:  "",
+			scrollPos:   0,
+		},
+		scanState: &ScanState{
+			targetHost: "",
+			portRange:  "1-1000",
+			results:    make([]ScanResult, 0),
+			scanning:   false,
+			progress:   0,
+			totalPorts: 0,
+			scanType:   "tcp",
+		},
+		brokerState: &BrokerState{
+			port:        "8080",
+			protocol:    "tcp",
+			connections: make([]BrokerConnection, 0),
+			isListening: false,
+			stats:       BrokerStats{},
+		},
+		listening: false,
 		lastActivity: time.Now(),
+		messages: make([]string, 0),
+		selected: 0,
+		menuItems: []string{"Connect", "Listen", "Chat", "Broker", "Scan", "Help", "Quit"},
 	}
 }
 
@@ -86,6 +164,66 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// Handle readline mode if enabled
+		if m.readlineMode && m.readlineEditor != nil {
+			switch msg.String() {
+			case "ctrl+c":
+				m.readlineMode = false
+				m.errorMsg = ""
+				m.successMsg = ""
+				return m, nil
+			case "enter":
+				// Process readline input
+				if m.input != "" {
+					m.addToHistory(m.input)
+					m.readlineMode = false
+					// Process the command based on current mode
+					return m.processCommand(m.input)
+				}
+				m.readlineMode = false
+				return m, nil
+			default:
+				// For now, just disable readline mode on other keys
+				m.readlineMode = false
+				return m, nil
+			}
+		}
+
+		// Global key bindings
+		switch msg.String() {
+		case "ctrl+c", "q":
+			if m.mode == ModeMenu {
+				m.quitting = true
+				return m, tea.Quit
+			}
+			// For other modes, let mode-specific handlers deal with it
+		case "esc":
+			m.mode = ModeMenu
+			m.errorMsg = ""
+			m.successMsg = ""
+			m.updateCompletionsForMode()
+			return m, nil
+		case "ctrl+l":
+			// Clear screen
+			m.errorMsg = ""
+			m.successMsg = ""
+			return m, nil
+		case "ctrl+h":
+			// Show history
+			history := m.getHistory()
+			if len(history) > 0 {
+				lastFive := history
+				if len(history) > 5 {
+					lastFive = history[len(history)-5:]
+				}
+				m.setSuccess("Recent commands: " + fmt.Sprintf("%v", lastFive))
+			} else {
+				m.setSuccess("No command history")
+			}
+			return m, nil
+		}
+
+		// Mode-specific updates
 		switch m.mode {
 		case ModeMenu:
 			return m.updateMenu(msg)
@@ -109,107 +247,178 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renders the current view
 func (m Model) View() string {
-	if m.width == 0 {
-		return "Loading..."
+	if m.quitting {
+		return "Goodbye!\n"
 	}
-
-	var content string
 
 	switch m.mode {
 	case ModeMenu:
-		content = m.viewMenu()
+		return m.viewMenu()
 	case ModeConnect:
-		content = m.viewConnect()
+		return m.viewConnect()
 	case ModeListen:
-		content = m.viewListen()
+		return m.viewListen()
 	case ModeChat:
-		content = m.viewChat()
+		return m.viewChat()
 	case ModeBroker:
-		content = m.viewBroker()
+		return m.viewBroker()
 	case ModeScan:
-		content = m.viewScan()
+		return m.viewScan()
 	case ModeHelp:
-		content = m.viewHelp()
+		return m.viewHelp()
 	default:
-		content = m.viewMenu()
+		return "Unknown mode\n"
 	}
-
-	// Add header and footer
-	header := m.renderHeader()
-	footer := m.renderFooter()
-
-	// Calculate content height
-	contentHeight := m.height - lipgloss.Height(header) - lipgloss.Height(footer) - 2
-
-	// Wrap content in a box
-	contentBox := AdaptiveBoxStyle(m.width, contentHeight).Render(content)
-
-	return lipgloss.JoinVertical(lipgloss.Left, header, contentBox, footer)
 }
 
-// renderHeader renders the application header
-func (m Model) renderHeader() string {
-	title := "GoCat - Network Swiss Army Knife"
-	status := m.renderStatus()
-
-	headerContent := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		TitleStyle.Render(title),
-		strings.Repeat(" ", m.width-lipgloss.Width(title)-lipgloss.Width(status)-4),
-		status,
-	)
-
-	return AdaptiveHeaderStyle(m.width).Render(headerContent)
-}
-
-// renderFooter renders the application footer
-func (m Model) renderFooter() string {
-	var help string
-	switch m.mode {
-	case ModeMenu:
-		help = "↑/↓: Navigate • Enter: Select • q: Quit"
-	case ModeConnect, ModeListen, ModeChat, ModeBroker, ModeScan:
-		help = "Esc: Back to Menu • q: Quit • ?: Help"
-	case ModeHelp:
-		help = "Esc: Back • q: Quit"
-	}
-
-	return StatusBarStyle.Width(m.width).Render(help)
-}
-
-// renderStatus renders the current status
-func (m Model) renderStatus() string {
-	if m.errorMsg != "" {
-		return ErrorStyle.Render("✗ " + m.errorMsg)
-	}
-	if m.successMsg != "" {
-		return SuccessStyle.Render("✓ " + m.successMsg)
-	}
-
-	if m.connected {
-		return StatusConnected()
-	}
-	if m.listening {
-		return StatusListening()
-	}
-	return MutedStyle.Render("● " + m.status)
-}
-
-// Helper methods for clearing messages
-func (m *Model) clearMessages() {
+// switchToMode switches to a different application mode
+func (m *Model) switchToMode(mode AppMode) {
+	m.mode = mode
 	m.errorMsg = ""
 	m.successMsg = ""
 }
 
-func (m *Model) setSuccess(msg string) {
-	m.clearMessages()
-	m.successMsg = msg
+// setError sets an error message
+func (m *Model) setError(msg string) {
+	m.errorMsg = msg
+	m.successMsg = ""
 }
 
-// Mode switching helpers
-func (m *Model) switchToMode(mode AppMode) {
-	m.mode = mode
-	m.clearMessages()
+// setSuccess sets a success message
+func (m *Model) setSuccess(msg string) {
+	m.successMsg = msg
+	m.errorMsg = ""
+}
+
+// addToHistory adds a command to readline history
+func (m *Model) addToHistory(command string) {
+	if m.historyEnabled && m.readlineEditor != nil {
+		m.readlineEditor.AddHistoryEntry(command)
+	}
+}
+
+// getHistory returns the command history
+func (m *Model) getHistory() []string {
+	if m.readlineEditor != nil {
+		return m.readlineEditor.GetHistory()
+	}
+	return []string{}
+}
+
+// updateCompletionsForMode updates completions based on current mode
+func (m *Model) updateCompletionsForMode() {
+	if m.readlineEditor == nil {
+		return
+	}
+
+	var completions []string
+	switch m.mode {
+	case ModeConnect:
+		completions = []string{
+			"tcp", "udp", "localhost", "127.0.0.1", "0.0.0.0",
+			"80", "443", "22", "21", "25", "53", "110", "143", "993", "995",
+			"connect", "disconnect", "status", "help", "back", "quit",
+		}
+	case ModeListen:
+		completions = []string{
+			"tcp", "udp", "start", "stop", "status", "clear",
+			"8080", "3000", "5000", "8000", "9000",
+			"help", "back", "quit",
+		}
+	case ModeChat:
+		completions = []string{
+			"send", "clear", "history", "connect", "disconnect",
+			"help", "back", "quit",
+		}
+	case ModeBroker:
+		completions = []string{
+			"start", "stop", "status", "clear", "connections",
+			"tcp", "udp", "help", "back", "quit",
+		}
+	case ModeScan:
+		completions = []string{
+			"tcp", "udp", "syn", "connect", "start", "stop", "clear",
+			"1-1000", "1-65535", "80,443,22", "localhost", "127.0.0.1",
+			"help", "back", "quit",
+		}
+	default:
+		completions = []string{
+			"connect", "listen", "chat", "broker", "scan", "help", "quit", "exit",
+			"clear", "history",
+		}
+	}
+
+	m.readlineEditor.SetCompletions(completions)
+}
+
+
+
+
+
+// processCommand processes a command based on the current mode
+func (m Model) processCommand(command string) (tea.Model, tea.Cmd) {
+	// Clear the input after processing
 	m.input = ""
-	m.cursor = 0
+	
+	// Handle global commands first
+	switch command {
+	case "quit", "exit":
+		m.quitting = true
+		return m, tea.Quit
+	case "clear":
+		m.errorMsg = ""
+		m.successMsg = ""
+		return m, nil
+	case "history":
+		history := m.getHistory()
+		if len(history) > 0 {
+			lastFive := history
+			if len(history) > 5 {
+				lastFive = history[len(history)-5:]
+			}
+			m.setSuccess(fmt.Sprintf("Recent commands: %v", lastFive))
+		} else {
+			m.setSuccess("No command history")
+		}
+		return m, nil
+	case "help":
+		m.mode = ModeHelp
+		m.updateCompletionsForMode()
+		return m, nil
+	case "back", "menu":
+		m.mode = ModeMenu
+		m.updateCompletionsForMode()
+		return m, nil
+	}
+	
+	// Handle mode-specific commands
+	switch m.mode {
+	case ModeMenu:
+		switch command {
+		case "connect", "1":
+			m.mode = ModeConnect
+			m.updateCompletionsForMode()
+		case "listen", "2":
+			m.mode = ModeListen
+			m.updateCompletionsForMode()
+		case "chat", "3":
+			m.mode = ModeChat
+			m.updateCompletionsForMode()
+		case "broker", "4":
+			m.mode = ModeBroker
+			m.updateCompletionsForMode()
+		case "scan", "5":
+			m.mode = ModeScan
+			m.updateCompletionsForMode()
+		default:
+			m.setError("Unknown command: " + command)
+		}
+	default:
+		// For other modes, set the input and let the mode-specific handlers process it
+		m.input = command
+		// Process through normal key handling
+		return m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	}
+	
+	return m, nil
 }
