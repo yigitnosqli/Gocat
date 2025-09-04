@@ -50,6 +50,8 @@ Examples:
 	Run:  runTransfer,
 }
 
+// init registers the transfer command with the root command and defines its CLI flags.
+// Flags configured: file, output, progress, resume, checksum, compress, transfer-timeout, and buffer size.
 func init() {
 	rootCmd.AddCommand(transferCmd)
 
@@ -64,6 +66,7 @@ func init() {
 	transferCmd.Flags().IntVar(&transferBuffer, "buffer", 32768, "Transfer buffer size in bytes")
 }
 
+// returned by sendFile or receiveFile are logged fatally as well.
 func runTransfer(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		logger.Fatal("Transfer mode required (send/receive)")
@@ -103,7 +106,12 @@ func runTransfer(cmd *cobra.Command, args []string) {
 	}
 }
 
-// sendFile sends a file to a remote host
+// sendFile sends the file at filePath to the specified host:port over TCP.
+// It verifies that filePath exists and is a regular file, opens it, connects to the remote
+// address using transferTimeout, sends a small metadata header ("GOCAT-TRANSFER\n<name>\n<size>\n"),
+// then streams the file contents while reporting progress.
+// Returns an error if file validation/opening, network connection, metadata transmission,
+// or the actual transfer fails.
 func sendFile(filePath, host, port string) error {
 	// Check if file exists and get info
 	fileInfo, err := os.Stat(filePath)
@@ -145,7 +153,12 @@ func sendFile(filePath, host, port string) error {
 	return transferFileData(file, conn, fileSize, "Sending")
 }
 
-// receiveFile receives a file from a remote connection
+// receiveFile listens on the given TCP port, accepts a single incoming
+// transfer connection, reads the sender's metadata (filename and size), and
+// writes the incoming byte stream to disk. If outputFile is empty the name
+// advertised by the sender is used. Returns a non-nil error if listening,
+// accepting the connection, reading metadata, creating the destination file,
+// or the data transfer fail.
 func receiveFile(port, outputFile string) error {
 	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
@@ -187,7 +200,18 @@ func receiveFile(port, outputFile string) error {
 	return transferFileData(conn, file, fileSize, "Receiving")
 }
 
-// readTransferMetadata reads file metadata from connection
+// readTransferMetadata reads and parses a transfer header from conn.
+// 
+// It reads up to 1024 bytes and expects a newline-delimited header with the
+// following form:
+//
+//   GOCAT-TRANSFER
+//   <filename>
+//   <filesize>
+//
+// Returns the filename and filesize parsed from the header. Returns an error
+// if the initial read fails, the header is malformed, or the filesize cannot be
+// parsed as an int64.
 func readTransferMetadata(conn net.Conn) (fileName string, fileSize int64, err error) {
 	buffer := make([]byte, 1024)
 	n, err := conn.Read(buffer)
@@ -220,7 +244,12 @@ func readTransferMetadata(conn net.Conn) (fileName string, fileSize int64, err e
 	return fileName, fileSize, nil
 }
 
-// transferFileData handles the actual file data transfer with progress monitoring
+// transferFileData copies file data from src to dst while tracking progress and reporting completion.
+// It reads into a buffer of size transferBuffer, writes each chunk to dst, and accumulates the number
+// of bytes transferred. When transferProgress is enabled the function updates a live progress display
+// once per second via showTransferProgress and prints a final progress line on completion.
+// On success it logs the total bytes transferred, elapsed duration, and average throughput (MB/s).
+// Any read or write error is returned wrapped with context.
 func transferFileData(src io.Reader, dst io.Writer, totalSize int64, operation string) error {
 	buffer := make([]byte, transferBuffer)
 	var transferred int64
@@ -264,7 +293,12 @@ func transferFileData(src io.Reader, dst io.Writer, totalSize int64, operation s
 	return nil
 }
 
-// showTransferProgress displays transfer progress
+// showTransferProgress prints an inline progress line for a transfer operation.
+// It writes a carriage-returned line to stdout containing a 40-character ASCII
+// progress bar, percent complete, current throughput in MB/s and an ETA when
+// computable. `operation` is used as the label, `transferred` and `total` are
+// byte counts, and `startTime` is used to derive elapsed time and speed.
+// This function has no return value and performs direct output via fmt.Printf.
 func showTransferProgress(operation string, transferred, total int64, startTime time.Time) {
 	percent := float64(transferred) / float64(total) * 100
 	duration := time.Since(startTime)

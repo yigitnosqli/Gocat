@@ -42,7 +42,9 @@ type LuaConfig struct {
 	ScriptDirs []string      // Directories to search for scripts
 }
 
-// DefaultLuaConfig returns default Lua configuration
+// DefaultLuaConfig returns a LuaConfig populated with sensible defaults:
+// a 30 second script timeout, 64 MiB max memory, sandboxing enabled, and
+// default script search paths ("./scripts" and "~/.gocat/scripts").
 func DefaultLuaConfig() *LuaConfig {
 	return &LuaConfig{
 		Timeout:    30 * time.Second,
@@ -52,7 +54,12 @@ func DefaultLuaConfig() *LuaConfig {
 	}
 }
 
-// NewLuaEngine creates a new Lua engine
+// NewLuaEngine creates and initializes a LuaEngine using the provided configuration.
+// If config is nil, DefaultLuaConfig() is used. The function creates a new Lua VM,
+// applies the GoCat API and sandbox settings, and preloads any .lua scripts found in
+// config.ScriptDirs. Returns an initialized *LuaEngine or an error if the Lua state
+// cannot be created or the environment setup fails. Loading individual script files
+// from directories is attempted but failures there are logged and do not abort engine creation.
 func NewLuaEngine(config *LuaConfig) (*LuaEngine, error) {
 	if config == nil {
 		config = DefaultLuaConfig()

@@ -21,7 +21,9 @@ type AccessControl struct {
 	mutex        sync.RWMutex
 }
 
-// NewAccessControl creates a new access control instance
+// NewAccessControl creates and returns a new AccessControl with empty allow/deny
+// maps and network slices. The instance is initialized with a default "allow"
+// policy (DefaultAllow = true).
 func NewAccessControl() *AccessControl {
 	return &AccessControl{
 		allowList:    make(map[string]bool),

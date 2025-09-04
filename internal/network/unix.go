@@ -20,7 +20,9 @@ type UnixSocketConfig struct {
 	Timeout     time.Duration
 }
 
-// DefaultUnixSocketConfig returns default configuration for Unix sockets
+// DefaultUnixSocketConfig returns the default UnixSocketConfig used for Unix
+// domain sockets. The returned config sets Permissions to 0666, Cleanup to true,
+// and Timeout to 30s.
 func DefaultUnixSocketConfig() *UnixSocketConfig {
 	return &UnixSocketConfig{
 		Permissions: 0666,
@@ -34,7 +36,8 @@ type UnixDialer struct {
 	config *UnixSocketConfig
 }
 
-// NewUnixDialer creates a new Unix socket dialer
+// NewUnixDialer returns a UnixDialer configured with the provided UnixSocketConfig.
+// If config is nil, DefaultUnixSocketConfig() is used.
 func NewUnixDialer(config *UnixSocketConfig) *UnixDialer {
 	if config == nil {
 		config = DefaultUnixSocketConfig()
@@ -78,7 +81,8 @@ type UnixListener struct {
 	path     string
 }
 
-// NewUnixListener creates a new Unix socket listener
+// NewUnixListener creates and returns a UnixListener configured with the provided UnixSocketConfig.
+// If config is nil, DefaultUnixSocketConfig() is used.
 func NewUnixListener(config *UnixSocketConfig) *UnixListener {
 	if config == nil {
 		config = DefaultUnixSocketConfig()
@@ -202,7 +206,12 @@ func (l *UnixListener) isSocketInUse(socketPath string) bool {
 	return true // Socket is in use
 }
 
-// isValidUnixSocketPath validates a Unix socket path
+// isValidUnixSocketPath reports whether path is an acceptable Unix domain socket path.
+// It returns true for non-empty paths up to 104 characters that are either absolute,
+// start with "./" or "../", or are simple relative filenames without any '/' characters.
+// Paths that exceed the length limit, are empty, or contain nested relative segments
+// (i.e., contain '/' but are not absolute or explicitly prefixed with "./" or "../")
+// are considered invalid.
 func isValidUnixSocketPath(path string) bool {
 	if path == "" {
 		return false
@@ -225,7 +234,12 @@ func isValidUnixSocketPath(path string) bool {
 	return true
 }
 
-// GetUnixSocketInfo returns information about a Unix socket
+// GetUnixSocketInfo returns metadata and usage status for the Unix socket at socketPath.
+// It stats the file and populates a UnixSocketInfo with path, permissions, size, modification
+// time and whether the filesystem entry is a socket. When available, UID, GID and inode are
+// filled from the platform-specific stat data. The function also attempts a short (100ms)
+// Unix-domain dial to mark the socket as InUse if a connection can be established.
+// Returns an error if the initial os.Stat fails.
 func GetUnixSocketInfo(socketPath string) (*UnixSocketInfo, error) {
 	stat, err := os.Stat(socketPath)
 	if err != nil {
