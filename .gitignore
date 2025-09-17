@@ -31,5 +31,3 @@ go.work.sum
 # .idea/
 # .vscode/
 
-# Kiro configuration
-.kiro/
