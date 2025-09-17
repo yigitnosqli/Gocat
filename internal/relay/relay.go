@@ -24,13 +24,13 @@ const (
 
 // Relay handles connection relaying/proxying
 type Relay struct {
-	Mode          RelayMode
-	BufferSize    int
-	Timeout       time.Duration
-	ShowStats     bool
-	bytesForward  int64
-	bytesReverse  int64
-	mutex         sync.RWMutex
+	Mode         RelayMode
+	BufferSize   int
+	Timeout      time.Duration
+	ShowStats    bool
+	bytesForward int64
+	bytesReverse int64
+	mutex        sync.RWMutex
 }
 
 // NewRelay creates a new relay instance
@@ -46,17 +46,17 @@ func NewRelay() *Relay {
 // RelayConnections relays data between two connections
 func (r *Relay) RelayConnections(conn1, conn2 net.Conn) error {
 	logger.Info("Starting relay between %s and %s", conn1.RemoteAddr(), conn2.RemoteAddr())
-	
+
 	var wg sync.WaitGroup
 	errChan := make(chan error, 2)
-	
+
 	// Set timeouts if specified
 	if r.Timeout > 0 {
 		deadline := time.Now().Add(r.Timeout)
 		conn1.SetDeadline(deadline)
 		conn2.SetDeadline(deadline)
 	}
-	
+
 	// Forward direction: conn1 -> conn2
 	if r.Mode == ModeBidirectional || r.Mode == ModeForward {
 		wg.Add(1)
@@ -71,7 +71,7 @@ func (r *Relay) RelayConnections(conn1, conn2 net.Conn) error {
 			}
 		}()
 	}
-	
+
 	// Reverse direction: conn2 -> conn1
 	if r.Mode == ModeBidirectional || r.Mode == ModeReverse {
 		wg.Add(1)
@@ -86,13 +86,13 @@ func (r *Relay) RelayConnections(conn1, conn2 net.Conn) error {
 			}
 		}()
 	}
-	
+
 	// Wait for completion or error
 	go func() {
 		wg.Wait()
 		close(errChan)
 	}()
-	
+
 	// Collect any errors
 	var errors []error
 	for err := range errChan {
@@ -100,16 +100,16 @@ func (r *Relay) RelayConnections(conn1, conn2 net.Conn) error {
 			errors = append(errors, err)
 		}
 	}
-	
+
 	// Show statistics
 	if r.ShowStats {
 		r.printStats()
 	}
-	
+
 	if len(errors) > 0 {
 		return fmt.Errorf("relay errors: %v", errors)
 	}
-	
+
 	return nil
 }
 
@@ -117,7 +117,7 @@ func (r *Relay) RelayConnections(conn1, conn2 net.Conn) error {
 func (r *Relay) copyData(dst io.Writer, src io.Reader, direction string) (int64, error) {
 	buffer := make([]byte, r.BufferSize)
 	var totalBytes int64
-	
+
 	for {
 		n, err := src.Read(buffer)
 		if err != nil {
@@ -127,14 +127,14 @@ func (r *Relay) copyData(dst io.Writer, src io.Reader, direction string) (int64,
 			}
 			return totalBytes, err
 		}
-		
+
 		written, err := dst.Write(buffer[:n])
 		if err != nil {
 			return totalBytes, err
 		}
-		
+
 		totalBytes += int64(written)
-		
+
 		if r.ShowStats && totalBytes%1048576 == 0 { // Every MB
 			logger.Debug("Relayed %d MB in %s direction", totalBytes/1048576, direction)
 		}
@@ -145,7 +145,7 @@ func (r *Relay) copyData(dst io.Writer, src io.Reader, direction string) (int64,
 func (r *Relay) printStats() {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-	
+
 	logger.Info("Relay Statistics:")
 	logger.Info("  Forward bytes: %d", r.bytesForward)
 	logger.Info("  Reverse bytes: %d", r.bytesReverse)
@@ -182,16 +182,16 @@ func (ps *ProxyServer) Start() error {
 		return fmt.Errorf("failed to listen on %s: %v", ps.ListenAddr, err)
 	}
 	defer listener.Close()
-	
+
 	logger.Info("Proxy server listening on %s, forwarding to %s", ps.ListenAddr, ps.TargetAddr)
-	
+
 	for {
 		clientConn, err := listener.Accept()
 		if err != nil {
 			logger.Error("Failed to accept connection: %v", err)
 			continue
 		}
-		
+
 		go ps.handleConnection(clientConn)
 	}
 }
@@ -199,9 +199,9 @@ func (ps *ProxyServer) Start() error {
 // handleConnection handles a single proxy connection
 func (ps *ProxyServer) handleConnection(clientConn net.Conn) {
 	defer clientConn.Close()
-	
+
 	logger.Info("New proxy connection from %s", clientConn.RemoteAddr())
-	
+
 	// Connect to target
 	targetConn, err := net.Dial("tcp", ps.TargetAddr)
 	if err != nil {
@@ -209,12 +209,12 @@ func (ps *ProxyServer) handleConnection(clientConn net.Conn) {
 		return
 	}
 	defer targetConn.Close()
-	
+
 	// Start relaying
 	if err := ps.relay.RelayConnections(clientConn, targetConn); err != nil {
 		logger.Error("Relay error: %v", err)
 	}
-	
+
 	logger.Info("Proxy connection closed")
 }
 
@@ -241,16 +241,16 @@ func (pf *PortForwarder) Forward() error {
 		return fmt.Errorf("failed to listen on %s: %v", pf.LocalAddr, err)
 	}
 	defer listener.Close()
-	
+
 	logger.Info("Port forwarding from %s to %s", pf.LocalAddr, pf.RemoteAddr)
-	
+
 	for {
 		localConn, err := listener.Accept()
 		if err != nil {
 			logger.Error("Failed to accept connection: %v", err)
 			continue
 		}
-		
+
 		go pf.handleForward(localConn)
 	}
 }
@@ -258,9 +258,9 @@ func (pf *PortForwarder) Forward() error {
 // handleForward handles a single port forward connection
 func (pf *PortForwarder) handleForward(localConn net.Conn) {
 	defer localConn.Close()
-	
+
 	logger.Debug("Forwarding connection from %s", localConn.RemoteAddr())
-	
+
 	// Connect to remote
 	remoteConn, err := net.Dial("tcp", pf.RemoteAddr)
 	if err != nil {
@@ -268,12 +268,12 @@ func (pf *PortForwarder) handleForward(localConn net.Conn) {
 		return
 	}
 	defer remoteConn.Close()
-	
+
 	// Start relaying
 	if err := pf.relay.RelayConnections(localConn, remoteConn); err != nil {
 		logger.Error("Forward error: %v", err)
 	}
-	
+
 	logger.Debug("Forward connection closed")
 }
 
@@ -301,16 +301,16 @@ func (ts *TunnelServer) Start() error {
 		return fmt.Errorf("failed to listen on %s: %v", ts.ListenAddr, err)
 	}
 	defer listener.Close()
-	
+
 	logger.Info("Tunnel server listening on %s", ts.ListenAddr)
-	
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			logger.Error("Failed to accept connection: %v", err)
 			continue
 		}
-		
+
 		go ts.handleTunnel(conn)
 	}
 }
@@ -318,21 +318,21 @@ func (ts *TunnelServer) Start() error {
 // handleTunnel handles a tunnel connection
 func (ts *TunnelServer) handleTunnel(conn net.Conn) {
 	defer conn.Close()
-	
+
 	clientID := conn.RemoteAddr().String()
 	logger.Info("New tunnel client: %s", clientID)
-	
+
 	ts.mutex.Lock()
 	ts.clients[clientID] = conn
 	ts.mutex.Unlock()
-	
+
 	defer func() {
 		ts.mutex.Lock()
 		delete(ts.clients, clientID)
 		ts.mutex.Unlock()
 		logger.Info("Tunnel client disconnected: %s", clientID)
 	}()
-	
+
 	// Keep connection alive and handle tunnel commands
 	buffer := make([]byte, 1024)
 	for {
@@ -343,7 +343,7 @@ func (ts *TunnelServer) handleTunnel(conn net.Conn) {
 			}
 			break
 		}
-		
+
 		// Echo back for now (simple tunnel)
 		if _, err := conn.Write(buffer[:n]); err != nil {
 			logger.Error("Tunnel write error: %v", err)

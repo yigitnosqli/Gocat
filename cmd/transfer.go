@@ -58,7 +58,7 @@ func init() {
 	// Transfer specific flags
 	transferCmd.Flags().StringVarP(&transferFile, "file", "f", "", "File to transfer")
 	transferCmd.Flags().StringVarP(&transferOutput, "output", "o", "", "Output file name")
-	transferCmd.Flags().BoolVarP(&transferProgress, "progress", "p", false, "Show transfer progress")
+	transferCmd.Flags().BoolVar(&transferProgress, "progress", false, "Show transfer progress")
 	transferCmd.Flags().BoolVar(&transferResume, "resume", false, "Resume interrupted transfer")
 	transferCmd.Flags().BoolVar(&transferChecksum, "checksum", false, "Verify file integrity with checksum")
 	transferCmd.Flags().BoolVar(&transferCompress, "compress", false, "Compress data during transfer")
@@ -201,13 +201,13 @@ func receiveFile(port, outputFile string) error {
 }
 
 // readTransferMetadata reads and parses a transfer header from conn.
-// 
+//
 // It reads up to 1024 bytes and expects a newline-delimited header with the
 // following form:
 //
-//   GOCAT-TRANSFER
-//   <filename>
-//   <filesize>
+//	GOCAT-TRANSFER
+//	<filename>
+//	<filesize>
 //
 // Returns the filename and filesize parsed from the header. Returns an error
 // if the initial read fails, the header is malformed, or the filesize cannot be

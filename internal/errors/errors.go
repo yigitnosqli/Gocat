@@ -408,11 +408,11 @@ func (pr *PanicRecovery) createPanicError(panicValue interface{}, operation stri
 
 	// Set all context
 	for key, value := range context {
-		panicErr.WithContext(key, value)
+		_ = panicErr.WithContext(key, value)
 	}
 
-	panicErr.WithUserFriendly("An unexpected error occurred. The system has recovered automatically.")
-	panicErr.WithSuggestion("If this error persists, please check the logs and contact support.")
+	_ = panicErr.WithUserFriendly("An unexpected error occurred. The system has recovered automatically.")
+	_ = panicErr.WithSuggestion("If this error persists, please check the logs and contact support.")
 
 	return panicErr
 }

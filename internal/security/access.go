@@ -164,7 +164,7 @@ func (ac *AccessControl) loadHostsFromFile(filename string) ([]string, error) {
 	for scanner.Scan() {
 		lineNum++
 		line := strings.TrimSpace(scanner.Text())
-		
+
 		// Skip empty lines and comments
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue

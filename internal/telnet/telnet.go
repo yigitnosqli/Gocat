@@ -17,17 +17,17 @@ const (
 	WILL = 251 // Will use option
 	SB   = 250 // Subnegotiation Begin
 	SE   = 240 // Subnegotiation End
-	
+
 	// Telnet options
-	ECHO                 = 1   // Echo
-	SUPPRESS_GO_AHEAD    = 3   // Suppress Go Ahead
-	STATUS               = 5   // Status
-	TIMING_MARK          = 6   // Timing Mark
-	TERMINAL_TYPE        = 24  // Terminal Type
-	WINDOW_SIZE          = 31  // Window Size
-	TERMINAL_SPEED       = 32  // Terminal Speed
-	REMOTE_FLOW_CONTROL  = 33  // Remote Flow Control
-	LINEMODE             = 34  // Linemode
+	ECHO                  = 1  // Echo
+	SUPPRESS_GO_AHEAD     = 3  // Suppress Go Ahead
+	STATUS                = 5  // Status
+	TIMING_MARK           = 6  // Timing Mark
+	TERMINAL_TYPE         = 24 // Terminal Type
+	WINDOW_SIZE           = 31 // Window Size
+	TERMINAL_SPEED        = 32 // Terminal Speed
+	REMOTE_FLOW_CONTROL   = 33 // Remote Flow Control
+	LINEMODE              = 34 // Linemode
 	ENVIRONMENT_VARIABLES = 36 // Environment Variables
 )
 
@@ -57,7 +57,7 @@ func (th *TelnetHandler) SetDebug(debug bool) {
 // HandleNegotiation processes Telnet negotiations
 func (th *TelnetHandler) HandleNegotiation() error {
 	buffer := make([]byte, 1024)
-	
+
 	for {
 		n, err := th.reader.Read(buffer)
 		if err != nil {
@@ -66,13 +66,13 @@ func (th *TelnetHandler) HandleNegotiation() error {
 			}
 			return fmt.Errorf("read error: %v", err)
 		}
-		
+
 		data := buffer[:n]
 		processed, err := th.processData(data)
 		if err != nil {
 			return fmt.Errorf("processing error: %v", err)
 		}
-		
+
 		if len(processed) > 0 {
 			// Return processed data to caller
 			// This would typically be handled by a callback or channel
@@ -87,18 +87,18 @@ func (th *TelnetHandler) HandleNegotiation() error {
 func (th *TelnetHandler) processData(data []byte) ([]byte, error) {
 	var result []byte
 	i := 0
-	
+
 	for i < len(data) {
 		if data[i] == IAC && i+1 < len(data) {
 			// Handle Telnet command
 			cmd := data[i+1]
-			
+
 			switch cmd {
 			case IAC:
 				// Escaped IAC, add single IAC to result
 				result = append(result, IAC)
 				i += 2
-				
+
 			case DO, DONT, WILL, WONT:
 				if i+2 < len(data) {
 					option := data[i+2]
@@ -111,7 +111,7 @@ func (th *TelnetHandler) processData(data []byte) ([]byte, error) {
 					// Incomplete command, need more data
 					return result, nil
 				}
-				
+
 			case SB:
 				// Subnegotiation - find SE
 				end := th.findSubnegotiationEnd(data[i:])
@@ -119,13 +119,13 @@ func (th *TelnetHandler) processData(data []byte) ([]byte, error) {
 					// Incomplete subnegotiation
 					return result, nil
 				}
-				
-				err := th.handleSubnegotiation(data[i:i+end+1])
+
+				err := th.handleSubnegotiation(data[i : i+end+1])
 				if err != nil {
 					return result, err
 				}
 				i += end + 1
-				
+
 			default:
 				if th.debug {
 					logger.Debug("Unknown Telnet command: %d", cmd)
@@ -138,7 +138,7 @@ func (th *TelnetHandler) processData(data []byte) ([]byte, error) {
 			i++
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -147,7 +147,7 @@ func (th *TelnetHandler) handleOption(cmd, option byte) error {
 	if th.debug {
 		logger.Debug("Telnet option: %s %s", th.commandName(cmd), th.optionName(option))
 	}
-	
+
 	switch cmd {
 	case DO:
 		// Server wants us to enable an option
@@ -159,11 +159,11 @@ func (th *TelnetHandler) handleOption(cmd, option byte) error {
 			// We won't handle other options
 			return th.sendResponse(WONT, option)
 		}
-		
+
 	case DONT:
 		// Server wants us to disable an option
 		return th.sendResponse(WONT, option)
-		
+
 	case WILL:
 		// Server will enable an option
 		switch option {
@@ -174,12 +174,12 @@ func (th *TelnetHandler) handleOption(cmd, option byte) error {
 			// We don't want other options
 			return th.sendResponse(DONT, option)
 		}
-		
+
 	case WONT:
 		// Server won't enable an option
 		return th.sendResponse(DONT, option)
 	}
-	
+
 	return nil
 }
 
@@ -188,14 +188,14 @@ func (th *TelnetHandler) handleSubnegotiation(data []byte) error {
 	if len(data) < 4 {
 		return fmt.Errorf("invalid subnegotiation data")
 	}
-	
+
 	option := data[2]
 	subData := data[3 : len(data)-2] // Remove IAC SB ... IAC SE
-	
+
 	if th.debug {
 		logger.Debug("Telnet subnegotiation for option %s: %v", th.optionName(option), subData)
 	}
-	
+
 	switch option {
 	case TERMINAL_TYPE:
 		return th.handleTerminalType(subData)
@@ -208,7 +208,7 @@ func (th *TelnetHandler) handleSubnegotiation(data []byte) error {
 			logger.Debug("Unhandled subnegotiation for option %d", option)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -219,7 +219,7 @@ func (th *TelnetHandler) handleTerminalType(data []byte) error {
 		response := []byte{IAC, SB, TERMINAL_TYPE, 0} // IS
 		response = append(response, []byte("xterm")...)
 		response = append(response, IAC, SE)
-		
+
 		_, err := th.writer.Write(response)
 		return err
 	}
@@ -231,7 +231,7 @@ func (th *TelnetHandler) handleWindowSize(data []byte) error {
 	if len(data) >= 4 {
 		width := (int(data[0]) << 8) | int(data[1])
 		height := (int(data[2]) << 8) | int(data[3])
-		
+
 		if th.debug {
 			logger.Debug("Window size: %dx%d", width, height)
 		}
@@ -251,11 +251,11 @@ func (th *TelnetHandler) handleEnvironment(data []byte) error {
 func (th *TelnetHandler) sendResponse(cmd, option byte) error {
 	response := []byte{IAC, cmd, option}
 	_, err := th.writer.Write(response)
-	
+
 	if th.debug {
 		logger.Debug("Sent Telnet response: %s %s", th.commandName(cmd), th.optionName(option))
 	}
-	
+
 	return err
 }
 
@@ -322,7 +322,7 @@ func WrapConnection(conn net.Conn, enableNegotiation bool) io.ReadWriteCloser {
 	if !enableNegotiation {
 		return conn
 	}
-	
+
 	return &TelnetConnection{
 		conn:    conn,
 		handler: NewTelnetHandler(conn),
@@ -366,7 +366,7 @@ func (tc *TelnetConnection) Read(p []byte) (n int, err error) {
 
 	// Copy processed data to output buffer
 	n = copy(p, processed)
-	
+
 	// Store remaining processed data for next read
 	if len(processed) > n {
 		tc.processedData = append(tc.processedData, processed[n:]...)

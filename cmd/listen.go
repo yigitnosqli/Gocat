@@ -261,6 +261,7 @@ func createTLSListener(network, address string) (net.Listener, error) {
 
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12, // Secure minimum TLS version
 	}
 
 	return tls.Listen(network, address, tlsConfig)

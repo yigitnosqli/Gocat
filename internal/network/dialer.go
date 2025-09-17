@@ -595,6 +595,7 @@ func (d *Dialer) DialTLS(ctx context.Context, address string, tlsConfig *tls.Con
 	if tlsConfig == nil {
 		tlsConfig = &tls.Config{
 			ServerName: host,
+			MinVersion: tls.VersionTLS12, // Secure minimum TLS version
 		}
 	}
 

@@ -16,22 +16,22 @@ const (
 	SOL_SCTP     = 132
 
 	// SCTP socket options
-	SCTP_RTOINFO        = 0
-	SCTP_ASSOCINFO      = 1
-	SCTP_INITMSG        = 2
-	SCTP_NODELAY        = 3
-	SCTP_AUTOCLOSE      = 4
-	SCTP_SET_PEER_ADDR  = 5
-	SCTP_PRIMARY_ADDR   = 6
-	SCTP_ADAPTATION_LAYER = 7
-	SCTP_DISABLE_FRAGMENTS = 8
-	SCTP_PEER_ADDR_PARAMS = 9
-	SCTP_DEFAULT_SEND_PARAM = 10
-	SCTP_EVENTS         = 11
+	SCTP_RTOINFO               = 0
+	SCTP_ASSOCINFO             = 1
+	SCTP_INITMSG               = 2
+	SCTP_NODELAY               = 3
+	SCTP_AUTOCLOSE             = 4
+	SCTP_SET_PEER_ADDR         = 5
+	SCTP_PRIMARY_ADDR          = 6
+	SCTP_ADAPTATION_LAYER      = 7
+	SCTP_DISABLE_FRAGMENTS     = 8
+	SCTP_PEER_ADDR_PARAMS      = 9
+	SCTP_DEFAULT_SEND_PARAM    = 10
+	SCTP_EVENTS                = 11
 	SCTP_I_WANT_MAPPED_V4_ADDR = 12
-	SCTP_MAXSEG         = 13
-	SCTP_STATUS         = 14
-	SCTP_GET_PEER_ADDR_INFO = 15
+	SCTP_MAXSEG                = 13
+	SCTP_STATUS                = 14
+	SCTP_GET_PEER_ADDR_INFO    = 15
 )
 
 // SCTPConfig holds SCTP-specific configuration
@@ -94,7 +94,7 @@ func (a *SCTPAddr) String() string {
 }
 
 // ResolveSCTPAddr resolves the given SCTP network/address string into an SCTPAddr.
-// 
+//
 // ResolveSCTPAddr accepts network "sctp", "sctp4", or "sctp6" and an address of the
 // form "host:port". If host is empty the returned address will contain the
 // wildcard IP appropriate for the network family (IPv4 or IPv6). Otherwise the
@@ -446,6 +446,7 @@ func DialSCTPTimeout(network string, laddr, raddr *SCTPAddr, timeout time.Durati
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
+	connectionLoop:
 		for {
 			select {
 			case <-ctx.Done():
@@ -456,7 +457,7 @@ func DialSCTPTimeout(network string, laddr, raddr *SCTPAddr, timeout time.Durati
 				soErr, err := syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_ERROR)
 				if err == nil && soErr == 0 {
 					// Connection successful
-					break
+					break connectionLoop
 				} else if err != nil || soErr != int(syscall.EINPROGRESS) {
 					syscall.Close(fd)
 					return nil, fmt.Errorf("connection failed: %v", err)
@@ -483,7 +484,7 @@ func DialSCTPTimeout(network string, laddr, raddr *SCTPAddr, timeout time.Durati
 }
 
 // createSockaddr constructs a syscall.Sockaddr for the given IP, port, and address family.
-// 
+//
 // It returns a *syscall.SockaddrInet4 when family is syscall.AF_INET and the provided IP is IPv4,
 // or a *syscall.SockaddrInet6 when family is syscall.AF_INET6 and the provided IP is IPv6.
 // Returns an error if the IP does not match the requested family or if the family is unsupported.
@@ -544,10 +545,10 @@ func (c *SCTPConn) GetSCTPInfo() (*SCTPInfo, error) {
 	// This would require platform-specific implementation
 	// For now, return basic info
 	return &SCTPInfo{
-		State:       "ESTABLISHED", // Placeholder
-		Streams:     c.config.Streams,
-		LocalAddr:   c.laddr,
-		RemoteAddr:  c.raddr,
+		State:      "ESTABLISHED", // Placeholder
+		Streams:    c.config.Streams,
+		LocalAddr:  c.laddr,
+		RemoteAddr: c.raddr,
 	}, nil
 }
 

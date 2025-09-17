@@ -76,8 +76,12 @@ func startChatServer(port string) error {
 		chatMutex.Lock()
 		if len(chatClients) >= chatMaxConns {
 			logger.Warn("Maximum chat connections reached, rejecting %s", conn.RemoteAddr())
-			conn.Write([]byte("Chat room is full. Please try again later.\n"))
-			conn.Close()
+			if _, err := conn.Write([]byte("Chat room is full. Please try again later.\n")); err != nil {
+				logger.Error("Failed to write to connection: %v", err)
+			}
+			if err := conn.Close(); err != nil {
+				logger.Error("Failed to close connection: %v", err)
+			}
 			chatMutex.Unlock()
 			continue
 		}

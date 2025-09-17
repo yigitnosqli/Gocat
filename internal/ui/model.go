@@ -32,10 +32,10 @@ type BrokerState struct {
 
 // BrokerStats represents broker statistics
 type BrokerStats struct {
-	TotalConnections int64
+	TotalConnections  int64
 	ActiveConnections int
-	BytesTransferred int64
-	Uptime          time.Duration
+	BytesTransferred  int64
+	Uptime            time.Duration
 }
 
 // Model represents the main application model
@@ -44,12 +44,12 @@ type Model struct {
 	mode AppMode
 
 	// Common state
-	input       string
-	errorMsg    string
-	successMsg  string
-	connected   bool
+	input          string
+	errorMsg       string
+	successMsg     string
+	connected      bool
 	connectionInfo string
-	quitting    bool
+	quitting       bool
 
 	// UI dimensions
 	width  int
@@ -66,7 +66,7 @@ type Model struct {
 	chatState    *ChatState
 	scanState    *ScanState
 	brokerState  *BrokerState
-	
+
 	// Additional state fields
 	listening    bool
 	lastActivity time.Time
@@ -84,24 +84,24 @@ func NewModel() Model {
 	readlineEditor.SetHistoryFile(".gocat_history")
 	readlineEditor.SetIgnoreCase(true)
 	readlineEditor.SetWordBreakChars(" \t\n\r\f\v")
-	
+
 	// Set up completions for common commands
 	completions := []string{
 		"connect", "listen", "chat", "broker", "scan", "help", "quit", "exit",
 		"clear", "history", "tcp", "udp", "localhost", "127.0.0.1",
 	}
 	readlineEditor.SetCompletions(completions)
-	
+
 	return Model{
-		mode:         ModeMenu,
-		input:        "",
-		errorMsg:     "",
-		successMsg:   "",
-		connected:    false,
+		mode:           ModeMenu,
+		input:          "",
+		errorMsg:       "",
+		successMsg:     "",
+		connected:      false,
 		connectionInfo: "",
-		quitting:     false,
-		width:        80,
-		height:       24,
+		quitting:       false,
+		width:          80,
+		height:         24,
 		readlineEditor: readlineEditor,
 		readlineMode:   false,
 		historyEnabled: true,
@@ -142,11 +142,11 @@ func NewModel() Model {
 			isListening: false,
 			stats:       BrokerStats{},
 		},
-		listening: false,
+		listening:    false,
 		lastActivity: time.Now(),
-		messages: make([]string, 0),
-		selected: 0,
-		menuItems: []string{"Connect", "Listen", "Chat", "Broker", "Scan", "Help", "Quit"},
+		messages:     make([]string, 0),
+		selected:     0,
+		menuItems:    []string{"Connect", "Listen", "Chat", "Broker", "Scan", "Help", "Quit"},
 	}
 }
 
@@ -351,15 +351,11 @@ func (m *Model) updateCompletionsForMode() {
 	m.readlineEditor.SetCompletions(completions)
 }
 
-
-
-
-
 // processCommand processes a command based on the current mode
 func (m Model) processCommand(command string) (tea.Model, tea.Cmd) {
 	// Clear the input after processing
 	m.input = ""
-	
+
 	// Handle global commands first
 	switch command {
 	case "quit", "exit":
@@ -390,7 +386,7 @@ func (m Model) processCommand(command string) (tea.Model, tea.Cmd) {
 		m.updateCompletionsForMode()
 		return m, nil
 	}
-	
+
 	// Handle mode-specific commands
 	switch m.mode {
 	case ModeMenu:
@@ -419,6 +415,6 @@ func (m Model) processCommand(command string) (tea.Model, tea.Cmd) {
 		// Process through normal key handling
 		return m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	}
-	
+
 	return m, nil
 }

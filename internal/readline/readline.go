@@ -20,22 +20,22 @@ import (
 
 // Editor represents a readline editor with rlwrap-like features
 type Editor struct {
-	reader        *bufio.Reader
-	history       []string
-	prompt        string
-	historyIndex  int
-	currentLine   []rune
-	cursorPos     int
-	originalState *term.State
-	fd            int
-	completions   []string
-	completionFn  func(string) []string
-	historyFile   string
-	maxHistory    int
-	filters       []Filter
-	colorPrompt   bool
-	promptColor   *color.Color
-	ignoreCase    bool
+	reader         *bufio.Reader
+	history        []string
+	prompt         string
+	historyIndex   int
+	currentLine    []rune
+	cursorPos      int
+	originalState  *term.State
+	fd             int
+	completions    []string
+	completionFn   func(string) []string
+	historyFile    string
+	maxHistory     int
+	filters        []Filter
+	colorPrompt    bool
+	promptColor    *color.Color
+	ignoreCase     bool
 	wordBreakChars string
 }
 

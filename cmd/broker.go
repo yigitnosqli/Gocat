@@ -66,7 +66,9 @@ func startBroker(port string) error {
 		brokerMutex.Lock()
 		if len(brokerClients) >= brokerMaxConns {
 			logger.Warn("Maximum connections reached, rejecting %s", conn.RemoteAddr())
-			conn.Close()
+			if err := conn.Close(); err != nil {
+				logger.Error("Failed to close connection: %v", err)
+			}
 			brokerMutex.Unlock()
 			continue
 		}
@@ -85,7 +87,9 @@ func handleBrokerClient(clientID string, conn net.Conn) {
 		brokerMutex.Lock()
 		delete(brokerClients, clientID)
 		brokerMutex.Unlock()
-		conn.Close()
+		if err := conn.Close(); err != nil {
+			logger.Error("Failed to close connection: %v", err)
+		}
 		logger.Info("Client disconnected: %s", clientID)
 	}()
 

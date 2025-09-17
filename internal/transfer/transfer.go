@@ -65,7 +65,7 @@ func (ft *FileTransfer) SendFile(writer io.Writer, filename string) error {
 	}
 
 	// Send header
-	header := fmt.Sprintf("GOCAT_FILE:%s:%d:%s:%s\n", 
+	header := fmt.Sprintf("GOCAT_FILE:%s:%d:%s:%s\n",
 		info.Filename, info.Size, info.MD5, info.SHA256)
 	if _, err := writer.Write([]byte(header)); err != nil {
 		return fmt.Errorf("failed to send header: %v", err)
@@ -155,7 +155,7 @@ func (ft *FileTransfer) copyWithProgress(dst io.Writer, src io.Reader, size int6
 
 	if ft.ShowProgress {
 		fmt.Printf("\n")
-		logger.Info("Transfer completed: %s (%d bytes in %v)", 
+		logger.Info("Transfer completed: %s (%d bytes in %v)",
 			filename, written, time.Since(startTime))
 	}
 
@@ -181,7 +181,7 @@ func (ft *FileTransfer) showProgress(filename string, current, total int64) {
 		}
 	}
 
-	fmt.Printf("\r%s [%s] %.1f%% (%d/%d bytes)", 
+	fmt.Printf("\r%s [%s] %.1f%% (%d/%d bytes)",
 		filename, bar, percent, current, total)
 }
 
@@ -212,7 +212,7 @@ func (ft *FileTransfer) parseHeader(header string) (*TransferInfo, error) {
 	parts := []string{}
 	current := ""
 	inHeader := false
-	
+
 	for _, char := range header {
 		if char == '\n' {
 			if inHeader {

@@ -323,7 +323,10 @@ func (bp *BufferPool) Cleanup() {
 			}
 
 			// Force garbage collection on the pool
-			pool.New = pool.New
+			// Reset the pool to trigger GC
+			pool.New = func() interface{} {
+				return make([]byte, size)
+			}
 		}
 	}
 

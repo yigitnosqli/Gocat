@@ -48,7 +48,7 @@ func (m Model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) viewMenu() string {
 	title := "🐱 GoCat"
 	description := "Network Swiss Army Knife"
-	
+
 	menuItems := []string{
 		"Connect",
 		"Listen",
@@ -58,13 +58,13 @@ func (m Model) viewMenu() string {
 		"Help",
 		"Quit",
 	}
-	
+
 	var menu strings.Builder
-	
+
 	// Title
 	menu.WriteString(title + "\n")
 	menu.WriteString(description + "\n\n")
-	
+
 	// Menu items
 	for i, item := range menuItems {
 		if i == m.selected {
@@ -73,7 +73,7 @@ func (m Model) viewMenu() string {
 			menu.WriteString("  " + item + "\n")
 		}
 	}
-	
+
 	// Feature highlights
 	menu.WriteString("\n")
 	features := []string{
@@ -82,10 +82,10 @@ func (m Model) viewMenu() string {
 		"💬 Real-time chat",
 		"🔄 Message broker",
 	}
-	
+
 	for _, feature := range features {
 		menu.WriteString("  " + feature + "\n")
 	}
-	
+
 	return menu.String()
 }

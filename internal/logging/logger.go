@@ -554,7 +554,7 @@ func (lr *LogRotator) Write(p []byte) (n int, err error) {
 
 // openFile opens the log file
 func (lr *LogRotator) openFile() error {
-	file, err := os.OpenFile(lr.filename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	file, err := os.OpenFile(lr.filename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
 		return err
 	}

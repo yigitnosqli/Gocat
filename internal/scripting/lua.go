@@ -13,17 +13,17 @@ import (
 	"time"
 
 	"github.com/ibrahmsql/gocat/internal/logger"
-	"github.com/yuin/gopher-lua"
+	lua "github.com/yuin/gopher-lua"
 )
 
 // LuaEngine manages Lua script execution
 type LuaEngine struct {
-	vm       *lua.LState
-	scripts  map[string]*LuaScript
-	mutex    sync.RWMutex
-	timeout  time.Duration
-	maxMem   int64
-	sandbox  bool
+	vm      *lua.LState
+	scripts map[string]*LuaScript
+	mutex   sync.RWMutex
+	timeout time.Duration
+	maxMem  int64
+	sandbox bool
 }
 
 // LuaScript represents a loaded Lua script
@@ -134,7 +134,7 @@ func (e *LuaEngine) registerGoCatAPI() {
 	// Environment info
 	envTable := e.vm.NewTable()
 	envTable.RawSetString("version", lua.LString("GoCat 1.0"))
-	envTable.RawSetString("platform", lua.LString(fmt.Sprintf("%s/%s", 
+	envTable.RawSetString("platform", lua.LString(fmt.Sprintf("%s/%s",
 		os.Getenv("GOOS"), os.Getenv("GOARCH"))))
 	e.vm.SetGlobal("gocat", envTable)
 }
@@ -352,7 +352,7 @@ func (e *LuaEngine) luaConnect(L *lua.LState) int {
 		protocol = "tcp"
 	}
 
-	addr := fmt.Sprintf("%s:%d", host, port)
+	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 	conn, err := net.Dial(protocol, addr)
 	if err != nil {
 		L.Push(lua.LNil)
@@ -428,7 +428,6 @@ func (e *LuaEngine) luaSend(L *lua.LState) int {
 	L.Push(lua.LNumber(0))
 	L.Push(lua.LString("invalid connection"))
 	return 2
-
 
 }
 

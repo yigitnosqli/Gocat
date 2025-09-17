@@ -49,7 +49,7 @@ func NewRateLimiter(rateStr string) (*RateLimiter, error) {
 // Returns an error if the numeric portion cannot be parsed or the unit is unknown.
 func parseRateString(rateStr string) (int64, error) {
 	rateStr = strings.ToUpper(strings.TrimSpace(rateStr))
-	
+
 	// Remove /s suffix if present
 	if strings.HasSuffix(rateStr, "/S") {
 		rateStr = rateStr[:len(rateStr)-2]
@@ -58,7 +58,7 @@ func parseRateString(rateStr string) (int64, error) {
 	// Parse number and unit
 	var value float64
 	var unit string
-	
+
 	for i, char := range rateStr {
 		if (char < '0' || char > '9') && char != '.' {
 			var err error
@@ -196,10 +196,10 @@ func (w *RateLimitedWriter) Write(p []byte) (n int, err error) {
 
 // RateLimitedConn wraps a net.Conn with rate limiting
 type RateLimitedConn struct {
-	conn        io.ReadWriteCloser
-	readLimiter *RateLimiter
+	conn         io.ReadWriteCloser
+	readLimiter  *RateLimiter
 	writeLimiter *RateLimiter
-	ctx         context.Context
+	ctx          context.Context
 }
 
 // NewRateLimitedConn returns a RateLimitedConn that wraps conn and applies separate optional rate limits for reads and writes.
