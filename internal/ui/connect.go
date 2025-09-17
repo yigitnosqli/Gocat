@@ -33,8 +33,8 @@ func (m Model) updateConnect(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "tab":
 		// Cycle through input fields
-		// This is a simplified version - in real implementation,
-		// you'd track which field is focused
+		m.connectState.focused = (m.connectState.focused + 1) % 3 // 0: host, 1: port, 2: protocol
+		return m, nil
 
 	case "enter":
 		// Attempt connection with validation

@@ -66,8 +66,8 @@ func DefaultConnectionOptions() *ConnectionOptions {
 	}
 }
 
-// Connection represents a network connection with enhanced features
-type Connection struct {
+// LegacyConnection represents a network connection with basic features (deprecated)
+type LegacyConnection struct {
 	conn         net.Conn
 	options      *ConnectionOptions
 	validator    *security.InputValidator
@@ -81,15 +81,15 @@ type Connection struct {
 	cancel       context.CancelFunc
 }
 
-// NewConnection creates a new enhanced connection
-func NewConnection(conn net.Conn, options *ConnectionOptions) *Connection {
+// NewLegacyConnection creates a new legacy connection (deprecated)
+func NewLegacyConnection(conn net.Conn, options *ConnectionOptions) *LegacyConnection {
 	if options == nil {
 		options = DefaultConnectionOptions()
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	return &Connection{
+	return &LegacyConnection{
 		conn:         conn,
 		options:      options,
 		validator:    security.NewInputValidator(),
@@ -101,7 +101,7 @@ func NewConnection(conn net.Conn, options *ConnectionOptions) *Connection {
 }
 
 // Read reads data from the connection
-func (c *Connection) Read(b []byte) (int, error) {
+func (c *LegacyConnection) Read(b []byte) (int, error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Error("Panic in Connection.Read: %v", r)
@@ -146,7 +146,7 @@ func (c *Connection) Read(b []byte) (int, error) {
 }
 
 // Write writes data to the connection
-func (c *Connection) Write(b []byte) (int, error) {
+func (c *LegacyConnection) Write(b []byte) (int, error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Error("Panic in Connection.Write: %v", r)
@@ -191,7 +191,7 @@ func (c *Connection) Write(b []byte) (int, error) {
 }
 
 // Close closes the connection
-func (c *Connection) Close() error {
+func (c *LegacyConnection) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -205,36 +205,36 @@ func (c *Connection) Close() error {
 }
 
 // LocalAddr returns the local network address
-func (c *Connection) LocalAddr() net.Addr {
+func (c *LegacyConnection) LocalAddr() net.Addr {
 	return c.conn.LocalAddr()
 }
 
 // RemoteAddr returns the remote network address
-func (c *Connection) RemoteAddr() net.Addr {
+func (c *LegacyConnection) RemoteAddr() net.Addr {
 	return c.conn.RemoteAddr()
 }
 
 // SetDeadline sets the read and write deadlines
-func (c *Connection) SetDeadline(t time.Time) error {
+func (c *LegacyConnection) SetDeadline(t time.Time) error {
 	return c.conn.SetDeadline(t)
 }
 
 // SetReadDeadline sets the deadline for future Read calls
-func (c *Connection) SetReadDeadline(t time.Time) error {
+func (c *LegacyConnection) SetReadDeadline(t time.Time) error {
 	return c.conn.SetReadDeadline(t)
 }
 
 // SetWriteDeadline sets the deadline for future Write calls
-func (c *Connection) SetWriteDeadline(t time.Time) error {
+func (c *LegacyConnection) SetWriteDeadline(t time.Time) error {
 	return c.conn.SetWriteDeadline(t)
 }
 
 // Stats returns connection statistics
-func (c *Connection) Stats() ConnectionStats {
+func (c *LegacyConnection) Stats() LegacyConnectionStats {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	return ConnectionStats{
+	return LegacyConnectionStats{
 		ConnectedAt:  c.connectedAt,
 		LastActivity: c.lastActivity,
 		BytesRead:    c.bytesRead,
@@ -247,7 +247,7 @@ func (c *Connection) Stats() ConnectionStats {
 }
 
 // Context returns the connection's context
-func (c *Connection) Context() context.Context {
+func (c *LegacyConnection) Context() context.Context {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.ctx
@@ -286,8 +286,8 @@ func isConnectionClosedError(err error) bool {
 		strings.Contains(errorMsg, "use of closed network connection")
 }
 
-// ConnectionStats holds connection statistics
-type ConnectionStats struct {
+// LegacyConnectionStats holds connection statistics (deprecated)
+type LegacyConnectionStats struct {
 	ConnectedAt  time.Time     `json:"connected_at"`
 	LastActivity time.Time     `json:"last_activity"`
 	BytesRead    int64         `json:"bytes_read"`
@@ -298,20 +298,20 @@ type ConnectionStats struct {
 	Closed       bool          `json:"closed"`
 }
 
-// Dialer provides enhanced dialing capabilities
-type Dialer struct {
+// LegacyDialer provides basic dialing capabilities (deprecated)
+type LegacyDialer struct {
 	options   *ConnectionOptions
 	validator *security.InputValidator
 	logger    *logger.Logger
 }
 
-// NewDialer creates a new enhanced dialer
-func NewDialer(options *ConnectionOptions) *Dialer {
+// NewLegacyDialer creates a new legacy dialer (deprecated)
+func NewLegacyDialer(options *ConnectionOptions) *LegacyDialer {
 	if options == nil {
 		options = DefaultConnectionOptions()
 	}
 
-	return &Dialer{
+	return &LegacyDialer{
 		options:   options,
 		validator: security.NewInputValidator(),
 		logger:    logger.GetDefaultLogger(),
@@ -319,7 +319,7 @@ func NewDialer(options *ConnectionOptions) *Dialer {
 }
 
 // Dial connects to the specified address
-func (d *Dialer) Dial(ctx context.Context, address string) (*Connection, error) {
+func (d *LegacyDialer) Dial(ctx context.Context, address string) (*LegacyConnection, error) {
 	host, portStr, err := net.SplitHostPort(address)
 	if err != nil {
 		return nil, errors.ValidationError("VAL006", fmt.Sprintf("Invalid address format: %s", address)).WithSuggestion("Use format 'host:port'")
@@ -343,7 +343,7 @@ func (d *Dialer) Dial(ctx context.Context, address string) (*Connection, error) 
 }
 
 // dialWithRetry attempts to dial with retry logic
-func (d *Dialer) dialWithRetry(ctx context.Context) (*Connection, error) {
+func (d *LegacyDialer) dialWithRetry(ctx context.Context) (*LegacyConnection, error) {
 	var lastErr error
 
 	for attempt := 0; attempt <= d.options.RetryAttempts; attempt++ {
@@ -376,7 +376,7 @@ func (d *Dialer) dialWithRetry(ctx context.Context) (*Connection, error) {
 }
 
 // dialOnce performs a single dial attempt
-func (d *Dialer) dialOnce(ctx context.Context) (*Connection, error) {
+func (d *LegacyDialer) dialOnce(ctx context.Context) (*LegacyConnection, error) {
 	address := net.JoinHostPort(d.options.Host, strconv.Itoa(d.options.Port))
 
 	dialer := &net.Dialer{
@@ -432,11 +432,11 @@ func (d *Dialer) dialOnce(ctx context.Context) (*Connection, error) {
 		"protocol":    d.options.Protocol,
 	})
 
-	return NewConnection(conn, d.options), nil
+	return NewLegacyConnection(conn, d.options), nil
 }
 
 // wrapDialError wraps dial errors with appropriate error types
-func (d *Dialer) wrapDialError(err error) error {
+func (d *LegacyDialer) wrapDialError(err error) error {
 	errStr := err.Error()
 
 	switch {
@@ -455,7 +455,7 @@ func (d *Dialer) wrapDialError(err error) error {
 	}
 }
 
-// Listener provides enhanced listening capabilities
+// Listener provides  listening capabilities
 type Listener struct {
 	listener  net.Listener
 	options   *ConnectionOptions
@@ -475,7 +475,7 @@ type ListenerStats struct {
 	BytesWritten      int64     `json:"bytes_written"`
 }
 
-// NewListener creates a new enhanced listener
+// NewListener creates a new  listener
 func NewListener(listener net.Listener, options *ConnectionOptions) *Listener {
 	if options == nil {
 		options = DefaultConnectionOptions()
@@ -493,7 +493,7 @@ func NewListener(listener net.Listener, options *ConnectionOptions) *Listener {
 }
 
 // Accept waits for and returns the next connection
-func (l *Listener) Accept() (*Connection, error) {
+func (l *Listener) Accept() (*LegacyConnection, error) {
 	l.mu.RLock()
 	closed := l.closed
 	l.mu.RUnlock()
@@ -517,7 +517,7 @@ func (l *Listener) Accept() (*Connection, error) {
 		"local_addr":  conn.LocalAddr().String(),
 	})
 
-	return NewConnection(conn, l.options), nil
+	return NewLegacyConnection(conn, l.options), nil
 }
 
 // Close closes the listener

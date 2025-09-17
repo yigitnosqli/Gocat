@@ -204,10 +204,34 @@ func isTerminal() bool {
 
 // getTerminalSize returns the terminal dimensions
 func getTerminalSize() (width, height int) {
-	// This is a simplified version
-	// In a real implementation, you'd use syscalls or libraries
-	// to get the actual terminal size
-	return 120, 40 // Default reasonable size
+	// Try to get actual terminal size using environment variables
+	if w := os.Getenv("COLUMNS"); w != "" {
+		if width, err := strconv.Atoi(w); err == nil && width > 0 {
+			if h := os.Getenv("LINES"); h != "" {
+				if height, err := strconv.Atoi(h); err == nil && height > 0 {
+					return width, height
+				}
+			}
+		}
+	}
+
+	// Try using terminal package for actual size detection
+	if file, err := os.OpenFile("/dev/tty", os.O_RDWR, 0); err == nil {
+		defer file.Close()
+		if w, h, err := getTerminalSizeFromFd(int(file.Fd())); err == nil {
+			return w, h
+		}
+	}
+
+	// Fallback to reasonable defaults
+	return 120, 40
+}
+
+// getTerminalSizeFromFd gets terminal size from file descriptor
+func getTerminalSizeFromFd(fd int) (width, height int, err error) {
+	// This would use syscalls like unix.IoctlGetWinsize on Unix systems
+	// For now, return error to use fallback
+	return 0, 0, fmt.Errorf("terminal size detection not implemented")
 }
 
 // ShowVersion displays version information in TUI style
