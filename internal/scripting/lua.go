@@ -2,6 +2,7 @@ package scripting
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -554,20 +555,24 @@ func (e *LuaEngine) luaHexDecode(L *lua.LState) int {
 
 // luaBase64Encode implements base64_encode() function in Lua
 func (e *LuaEngine) luaBase64Encode(L *lua.LState) int {
-	// This would require importing encoding/base64
-	// For now, return the input as-is
 	data := L.ToString(1)
-	L.Push(lua.LString(data))
+	encoded := base64.StdEncoding.EncodeToString([]byte(data))
+	L.Push(lua.LString(encoded))
 	return 1
 }
 
 // luaBase64Decode implements base64_decode() function in Lua
 func (e *LuaEngine) luaBase64Decode(L *lua.LState) int {
-	// This would require importing encoding/base64
-	// For now, return the input as-is
 	data := L.ToString(1)
-	L.Push(lua.LString(data))
-	return 1
+	decoded, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		L.Push(lua.LString(""))
+		L.Push(lua.LString(err.Error()))
+		return 2
+	}
+	L.Push(lua.LString(string(decoded)))
+	L.Push(lua.LNil)
+	return 2
 }
 
 // luaReadFile implements read_file() function in Lua (only if not sandboxed)

@@ -59,7 +59,7 @@ Depends: libc6 (>= 2.17)
 Homepage: $HOMEPAGE
 Description: $DESCRIPTION
  GoCat is a modern, feature-rich alternative to netcat written in Go.
- It provides enhanced functionality for network communication, debugging,
+ It provides  functionality for network communication, debugging,
  and penetration testing with improved IPv6 support, interactive modes,
  and cross-platform compatibility.
  .
@@ -214,7 +214,7 @@ gocat \- modern netcat alternative written in Go
 .B gocat
 [\fIGLOBAL OPTIONS\fR] \fICOMMAND\fR [\fICOMMAND OPTIONS\fR] [\fIARGUMENTS\fR...]
 .SH DESCRIPTION
-GoCat is a modern, feature-rich alternative to netcat written in Go. It provides enhanced functionality for network communication, debugging, and penetration testing.
+GoCat is a modern, feature-rich alternative to netcat written in Go. It provides  functionality for network communication, debugging, and penetration testing.
 .SH COMMANDS
 .TP
 .B connect, c

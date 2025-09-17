@@ -1,5 +1,5 @@
 class Gocat < Formula
-  desc "Modern netcat alternative written in Go with enhanced features"
+  desc "Modern netcat alternative written in Go with  features"
   homepage "https://github.com/ibrahmsql/gocat"
   url "https://github.com/ibrahmsql/gocat/archive/refs/tags/v#{version}.tar.gz"
   sha256 "" # This will be updated when creating releases 
@@ -31,7 +31,7 @@ class Gocat < Formula
       .B gocat
       [\fIOPTIONS\fR] \fICOMMAND\fR [\fIARGS\fR]
       .SH DESCRIPTION
-      GoCat is a modern, feature-rich alternative to netcat written in Go. It provides enhanced functionality for network communication, debugging, and penetration testing.
+      GoCat is a modern, feature-rich alternative to netcat written in Go. It provides  functionality for network communication, debugging, and penetration testing.
       .SH OPTIONS
       .TP
       \fB\-h, \-\-help\fR

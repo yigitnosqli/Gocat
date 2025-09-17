@@ -37,7 +37,7 @@ func TestConnectionTypeValidation(t *testing.T) {
 	}
 }
 
-func TestNewDialer(t *testing.T) {
+func TestNewLegacyDialer(t *testing.T) {
 	opts := &ConnectionOptions{
 		Host:     "localhost",
 		Port:     8080,
@@ -45,9 +45,9 @@ func TestNewDialer(t *testing.T) {
 		Timeout:  5 * time.Second,
 	}
 
-	dialer := NewDialer(opts)
+	dialer := NewLegacyDialer(opts)
 	if dialer == nil {
-		t.Fatal("NewDialer should not return nil")
+		t.Fatal("NewLegacyDialer should not return nil")
 	}
 
 	if dialer.options != opts {
@@ -61,9 +61,9 @@ func TestConnectionStatsInitialization(t *testing.T) {
 	defer server.Close()
 	defer client.Close()
 
-	conn := NewConnection(client, DefaultConnectionOptions())
+	conn := NewLegacyConnection(client, DefaultConnectionOptions())
 	if conn == nil {
-		t.Fatal("NewConnection should not return nil")
+		t.Fatal("NewLegacyConnection should not return nil")
 	}
 
 	stats := conn.Stats()
@@ -85,7 +85,7 @@ func TestConnectionContextCancellation(t *testing.T) {
 	defer server.Close()
 	defer client.Close()
 
-	conn := NewConnection(client, DefaultConnectionOptions())
+	conn := NewLegacyConnection(client, DefaultConnectionOptions())
 	ctx := conn.Context()
 
 	if ctx == nil {

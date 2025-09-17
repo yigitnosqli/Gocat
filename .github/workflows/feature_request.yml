@@ -1,7 +1,7 @@
 name: ✨ Feature Request
-description: Suggest a new feature or enhancement for GoCat
+description: Suggest a new feature or ment for GoCat
 title: "✨ [Feature]: "
-labels: ["enhancement", "needs-triage"]
+labels: ["ment", "needs-triage"]
 assignees: []
 body:
   - type: markdown
@@ -114,7 +114,7 @@ body:
         - Improved user experience for file transfers
         - Better compatibility with existing netcat workflows
         - Reduced need for external tools
-        - Enhanced performance for large data transfers
+        -  performance for large data transfers
 
   - type: dropdown
     id: compatibility
@@ -123,7 +123,7 @@ body:
       description: Should this feature maintain compatibility with netcat?
       options:
         - "✅ Yes - Should be compatible with netcat behavior"
-        - "🆕 No - This is a GoCat-specific enhancement"
+        - "🆕 No - This is a GoCat-specific ment"
         - "🤔 Partial - Some compatibility considerations"
         - "❓ Not sure - Need guidance"
     validations:
