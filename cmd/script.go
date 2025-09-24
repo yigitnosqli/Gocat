@@ -11,6 +11,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Constants for script command
+const (
+	scriptsDirectory = "./scripts"
+	luaExtension     = ".lua"
+	maxScriptSize    = 10 * 1024 * 1024 // 10MB limit for script files
+)
+
 var scriptCmd = &cobra.Command{
 	Use:   "script",
 	Short: "Lua script management and execution",
@@ -91,6 +98,12 @@ func runScript(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	// Validate script file size
+	if err := validateScriptFile(resolvedPath); err != nil {
+		logger.Error("Script validation failed: %v", err)
+		os.Exit(1)
+	}
+
 	logger.Info("Executing script: %s", resolvedPath)
 
 	// Create Lua engine
@@ -99,7 +112,11 @@ func runScript(cmd *cobra.Command, args []string) {
 		logger.Error("Failed to create Lua engine")
 		os.Exit(1)
 	}
-	defer engine.Close()
+	defer func() {
+		if engine != nil {
+			engine.Close()
+		}
+	}()
 
 	// Load and execute script
 	if err := engine.LoadScript(resolvedPath); err != nil {
@@ -116,7 +133,7 @@ func runScript(cmd *cobra.Command, args []string) {
 }
 
 func listScripts(cmd *cobra.Command, args []string) {
-	scriptsDir := "./scripts"
+	scriptsDir := scriptsDirectory
 
 	// Check if scripts directory exists
 	if _, err := os.Stat(scriptsDir); os.IsNotExist(err) {
@@ -135,7 +152,7 @@ func listScripts(cmd *cobra.Command, args []string) {
 	// Filter Lua files
 	var luaScripts []string
 	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".lua") {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), luaExtension) {
 			luaScripts = append(luaScripts, entry.Name())
 		}
 	}
@@ -377,6 +394,37 @@ func parseScriptInfo(content string) ScriptInfo {
 	}
 
 	return info
+}
+
+// validateScriptFile validates script file size and permissions
+func validateScriptFile(scriptPath string) error {
+	fileInfo, err := os.Stat(scriptPath)
+	if err != nil {
+		return fmt.Errorf("cannot access script file: %w", err)
+	}
+
+	// Check file size
+	if fileInfo.Size() > maxScriptSize {
+		return fmt.Errorf("script file too large: %d bytes (max: %d bytes)", fileInfo.Size(), maxScriptSize)
+	}
+
+	// Check if file is readable
+	file, err := os.Open(scriptPath)
+	if err != nil {
+		return fmt.Errorf("cannot read script file: %w", err)
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			logger.Debug("Failed to close script file: %v", closeErr)
+		}
+	}()
+
+	return nil
+}
+
+// isLuaFile checks if the file has a Lua extension
+func isLuaFile(filename string) bool {
+	return strings.HasSuffix(strings.ToLower(filename), luaExtension)
 }
 
 func init() {

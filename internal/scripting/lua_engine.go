@@ -14,6 +14,16 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
+// Constants for Lua engine configuration
+const (
+	defaultMaxExecutionTime = 30 * time.Second
+	defaultMaxMemory        = 64 * 1024 * 1024 // 64MB
+	defaultConnectionTimeout = 10 * time.Second
+	maxReceiveBufferSize    = 2048
+	gocatVersion           = "dev"
+	gocatPlatform          = "linux/amd64"
+)
+
 // LuaEngine represents a Lua scripting engine for GoCat
 type LuaEngine struct {
 	L        *lua.LState
@@ -34,8 +44,8 @@ type EngineConfig struct {
 func NewLuaEngine(config *EngineConfig) *LuaEngine {
 	if config == nil {
 		config = &EngineConfig{
-			MaxExecutionTime: 30 * time.Second,
-			MaxMemory:        64 * 1024 * 1024, // 64MB
+			MaxExecutionTime: defaultMaxExecutionTime,
+			MaxMemory:        defaultMaxMemory,
 			RestrictedMode:   false,
 		}
 	}
@@ -157,8 +167,8 @@ func (e *LuaEngine) registerAPI() {
 
 	// GoCat environment info
 	gocatTable := e.L.NewTable()
-	gocatTable.RawSetString("version", lua.LString("dev"))
-	gocatTable.RawSetString("platform", lua.LString("linux/amd64"))
+	gocatTable.RawSetString("version", lua.LString(gocatVersion))
+	gocatTable.RawSetString("platform", lua.LString(gocatPlatform))
 	e.L.SetGlobal("gocat", gocatTable)
 
 	logger.Debug("Registered GoCat Lua API functions")
@@ -192,12 +202,12 @@ func (e *LuaEngine) luaConnect(L *lua.LState) int {
 
 	switch strings.ToLower(protocol) {
 	case "tcp", "":
-		conn, err = net.DialTimeout("tcp", address, 10*time.Second)
+		conn, err = net.DialTimeout("tcp", address, defaultConnectionTimeout)
 	case "udp":
-		conn, err = net.DialTimeout("udp", address, 10*time.Second)
+		conn, err = net.DialTimeout("udp", address, defaultConnectionTimeout)
 	case "ssl", "tls":
-		config := &tls.Config{InsecureSkipVerify: true}
-		conn, err = tls.DialWithDialer(&net.Dialer{Timeout: 10*time.Second}, "tcp", address, config)
+		config := &tls.Config{InsecureSkipVerify: true} // #nosec G402 - Required for script flexibility
+		conn, err = tls.DialWithDialer(&net.Dialer{Timeout: defaultConnectionTimeout}, "tcp", address, config)
 	default:
 		L.Push(lua.LNil)
 		L.Push(lua.LString("unsupported protocol: " + protocol))
@@ -325,7 +335,7 @@ func (e *LuaEngine) luaReceive(L *lua.LState) int {
 	}
 
 	if size <= 0 {
-		size = 1024
+		size = maxReceiveBufferSize
 	}
 
 	buffer := make([]byte, size)
