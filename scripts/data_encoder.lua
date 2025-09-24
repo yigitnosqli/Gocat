@@ -92,7 +92,8 @@ function binary_encode(str)
         local binary = ""
         
         for j = 7, 0, -1 do
-            binary = binary .. ((byte >> j) & 1)
+            local bit = math.floor(byte / (2^j)) % 2
+            binary = binary .. bit
         end
         
         result = result .. binary .. " "
