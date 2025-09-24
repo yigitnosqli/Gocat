@@ -72,7 +72,7 @@ function parse_dns_response(response, transaction_id)
     end
     
     local flags = string.byte(response, 3) * 256 + string.byte(response, 4)
-    local rcode = flags & 0x0F
+    local rcode = flags % 16
     
     if rcode ~= 0 then
         local error_codes = {

@@ -161,6 +161,9 @@ To run Lua scripts in GoCat:
 
    ```bash
    gocat script run port_scanner.lua
+   gocat script list
+   gocat script info banner_grabber.lua
+   gocat script validate test_scanner.lua
    ```
 
 3. **Programmatically:**
