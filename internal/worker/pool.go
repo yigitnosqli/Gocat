@@ -32,8 +32,7 @@ type WorkerPool struct {
 	stats *PoolStats // Pool statistics
 
 	// Scaling
-	scaleTimer *time.Timer // Timer for scaling decisions
-	scaleMu    sync.Mutex  // Protects scaling operations
+	scaleMu sync.Mutex // Protects scaling operations
 }
 
 // Worker represents a single worker goroutine
@@ -219,11 +218,15 @@ func (wp *WorkerPool) createWorker() *Worker {
 	return worker
 }
 
-// terminateWorker terminates a worker
+// terminateWorker terminates a worker (acquires lock)
 func (wp *WorkerPool) terminateWorker(workerID int) {
 	wp.mu.Lock()
 	defer wp.mu.Unlock()
+	wp.terminateWorkerLocked(workerID)
+}
 
+// terminateWorkerLocked terminates a worker (caller must hold lock)
+func (wp *WorkerPool) terminateWorkerLocked(workerID int) {
 	if worker, exists := wp.workers[workerID]; exists {
 		worker.cancel()
 		delete(wp.workers, workerID)
@@ -443,8 +446,12 @@ func (wp *WorkerPool) ForceShutdown() {
 
 	// Terminate all workers
 	wp.mu.Lock()
+	workerIDs := make([]int, 0, len(wp.workers))
 	for id := range wp.workers {
-		wp.terminateWorker(id)
+		workerIDs = append(workerIDs, id)
+	}
+	for _, id := range workerIDs {
+		wp.terminateWorkerLocked(id)
 	}
 	wp.mu.Unlock()
 }

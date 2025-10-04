@@ -195,7 +195,8 @@ func (e *LuaEngine) luaConnect(L *lua.LState) int {
 		return 2
 	}
 
-	address := fmt.Sprintf("%s:%d", host, port)
+	// Use net.JoinHostPort for proper IPv6 support
+	address := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 
 	var conn net.Conn
 	var err error

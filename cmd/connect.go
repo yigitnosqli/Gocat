@@ -146,9 +146,6 @@ func runConnect(cmd *cobra.Command, args []string) {
 	if globalAppend, _ := cmd.Root().PersistentFlags().GetBool("append-output"); globalAppend {
 		appendOutput = true
 	}
-	if globalNoShutdown, _ := cmd.Root().PersistentFlags().GetBool("no-shutdown"); globalNoShutdown {
-		noShutdown = true
-	}
 	// Protocol flags
 	if globalTelnet, _ := cmd.Root().PersistentFlags().GetBool("telnet"); globalTelnet {
 		telnetMode = true
@@ -251,6 +248,21 @@ func dialWithOptions(network, address string) (net.Conn, error) {
 	var dialer net.Dialer
 	dialer.Timeout = timeout
 
+	// Set source address if specified
+	if sourceAddress != "" {
+		var localAddr net.Addr
+		var err error
+		if strings.Contains(network, "tcp") {
+			localAddr, err = net.ResolveTCPAddr(network, net.JoinHostPort(sourceAddress, fmt.Sprintf("%d", sourcePort)))
+		} else if strings.Contains(network, "udp") {
+			localAddr, err = net.ResolveUDPAddr(network, net.JoinHostPort(sourceAddress, fmt.Sprintf("%d", sourcePort)))
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve local address: %v", err)
+		}
+		dialer.LocalAddr = localAddr
+	}
+
 	// Handle proxy
 	if proxyURL != "" {
 		return dialWithProxy(network, address, &dialer)
@@ -326,6 +338,7 @@ func dialWithHTTPProxy(network, address string, proxyURL *url.URL, dialer *net.D
 func dialWithTLS(network, address string, dialer *net.Dialer) (net.Conn, error) {
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: !verifyCert,
+		MinVersion:         tls.VersionTLS12, // Secure minimum TLS version
 	}
 
 	// Load CA certificate if provided
@@ -461,7 +474,9 @@ type hexDumper struct {
 func (h *hexDumper) Write(p []byte) (n int, err error) {
 	// Write to original output if exists
 	if h.original != nil {
-		h.original.Write(p)
+		if _, err := h.original.Write(p); err != nil {
+			return 0, fmt.Errorf("failed to write to original output: %v", err)
+		}
 	}
 
 	// Write hex dump
