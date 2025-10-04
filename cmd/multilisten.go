@@ -65,6 +65,7 @@ Examples:
 	Run: runMultiListen,
 }
 
+// per-connection timeout (--timeout), whether to display statistics (--stats), and the bind address (--bind).
 func init() {
 	rootCmd.AddCommand(multiListenCmd)
 
@@ -77,6 +78,9 @@ func init() {
 	multiListenCmd.Flags().StringVar(&multiBindAddress, "bind", "0.0.0.0", "Bind address")
 }
 
+// runMultiListen parses configured ports and port ranges, starts a listener on each port, and waits for all listeners to finish.
+//
+// It reads port configuration from package-level flags (individual ports and a range), exits with a fatal log on invalid or missing port configuration, optionally starts the periodic statistics reporter, launches one listener goroutine per port, and blocks until those listeners exit (typically via interruption).
 func runMultiListen(cmd *cobra.Command, args []string) {
 	// Parse ports
 	var ports []int
@@ -124,6 +128,11 @@ func runMultiListen(cmd *cobra.Command, args []string) {
 	wg.Wait()
 }
 
+// startPortListener starts a TCP listener bound to the provided port and runs an accept loop.
+// 
+// It initializes per-port statistics, enforces a concurrency limit using a semaphore sized by
+// multiMaxConns, and spawns a goroutine for each accepted connection that delegates handling to
+// handleMultiListenConnection. If the listener cannot be created the function logs the error and returns.
 func startPortListener(port int) {
 	address := net.JoinHostPort(multiBindAddress, strconv.Itoa(port))
 	
@@ -166,6 +175,17 @@ func startPortListener(port int) {
 	}
 }
 
+// handleMultiListenConnection updates per-port statistics, applies an optional
+// connection timeout, and dispatches the connection to the configured handler.
+//
+// It increments TotalConns and ActiveConns and sets LastConnection for the
+// given port, and decrements ActiveConns when the connection handling finishes.
+// If multiTimeout is greater than zero, it sets a deadline on the connection.
+// If multiExec is non-empty the connection is handled by the exec handler;
+// otherwise it is handled in echo mode.
+//
+// conn is the accepted network connection. port is the listening port associated
+// with this connection.
 func handleMultiListenConnection(conn net.Conn, port int) {
 	// Update stats
 	mlStats.mu.Lock()
@@ -200,6 +220,13 @@ func handleMultiListenConnection(conn net.Conn, port int) {
 	}
 }
 
+// handleExecConnection runs a configured command (or the platform default shell) for the given connection
+// and wires the network stream to the process stdio.
+//
+// It sends data from the connection into the process stdin and forwards both stdout and stderr back to
+// the connection. Bytes forwarded from stdout and stderr are added to mlStats.portStats[port].BytesSent.
+// The function waits for all I/O copying to complete and for the process to exit. Pipe creation or
+// command start failures are logged and cause the function to return.
 func handleExecConnection(conn net.Conn, port int) {
 	shell := multiExec
 	if shell == "" {
@@ -269,6 +296,7 @@ func handleExecConnection(conn net.Conn, port int) {
 	cmd.Wait()
 }
 
+// The loop stops on EOF or on read/write errors (which are logged at debug level).
 func handleEchoConnection(conn net.Conn, port int) {
 	buf := make([]byte, 4096)
 	for {
@@ -301,6 +329,10 @@ func handleEchoConnection(conn net.Conn, port int) {
 	}
 }
 
+// reportMultiListenStats periodically prints per-port listener statistics.
+// It emits, every 30 seconds, a summary for each tracked port including total
+// connections, active connections, bytes received, bytes sent, and the time of
+// the last connection.
 func reportMultiListenStats() {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
