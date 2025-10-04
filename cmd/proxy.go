@@ -79,6 +79,10 @@ Examples:
 	Run: runProxy,
 }
 
+// init registers the proxy command with the root command and defines its CLI flags.
+// It binds command-line options (listen address, target/backends, load-balancing algorithm,
+// health check path, timeouts, connection limits, header modification, request logging, and TLS
+// certificate/key) to the package-level configuration variables with their default values.
 func init() {
 	rootCmd.AddCommand(proxyCmd)
 
@@ -96,6 +100,12 @@ func init() {
 	proxyCmd.Flags().StringVar(&proxySSLKey, "key", "", "SSL key file")
 }
 
+// runProxy starts the reverse proxy server according to CLI configuration.
+// It builds the backend list from the --target/--backends flags, initializes per-backend stats,
+// optionally starts periodic health checks, creates the configured load balancer and HTTP handler,
+// launches the stats reporter, and serves HTTP or HTTPS depending on SSL flags.
+// The function logs a fatal error and exits on invalid configuration (missing backends or bad URLs),
+// missing SSL credentials when SSL is enabled, or on unrecoverable server errors.
 func runProxy(cmd *cobra.Command, args []string) {
 	// Validate configuration
 	if proxyTarget == "" && len(proxyTargets) == 0 {
@@ -253,6 +263,7 @@ type loadBalancer struct {
 	mu        sync.RWMutex
 }
 
+// selection algorithm.
 func newLoadBalancer(backends []*url.URL, algorithm string) *loadBalancer {
 	return &loadBalancer{
 		backends:  backends,
@@ -318,6 +329,7 @@ func (lb *loadBalancer) NextBackend(r *http.Request) *url.URL {
 	}
 }
 
+// hashing and distribution.
 func hashString(s string) uint64 {
 	var hash uint64
 	for _, c := range s {
@@ -326,7 +338,9 @@ func hashString(s string) uint64 {
 	return hash
 }
 
-// Health checks
+// startHealthChecks starts a background routine that periodically checks the health
+// of each provided backend URL using the configured health-check path.
+// It runs checks on a 10-second interval and invokes checkBackendHealth concurrently for each backend.
 func startHealthChecks(backends []*url.URL) {
 	logger.Info("Starting health checks on %s", proxyHealthCheck)
 	
@@ -340,6 +354,10 @@ func startHealthChecks(backends []*url.URL) {
 	}()
 }
 
+// checkBackendHealth performs an HTTP GET to the backend's health-check endpoint and updates
+// proxyStats.BackendStats for that backend: it sets IsHealthy to true and LastHealthy to the
+// current time when the response is a 2xx status, and sets IsHealthy to false on request
+// errors or non-2xx responses.
 func checkBackendHealth(backend *url.URL) {
 	healthURL := backend.String() + proxyHealthCheck
 	
@@ -374,7 +392,11 @@ func checkBackendHealth(backend *url.URL) {
 	}
 }
 
-// Stats reporter
+// reportStats logs aggregated proxy metrics and per-backend status.
+// 
+// It periodically (every 30 seconds) records total requests, active requests,
+// failed requests, average latency, and for each backend reports health status,
+// request count, and failure count.
 func reportStats() {
 	ticker := time.NewTicker(30 * time.Second)
 	for range ticker.C {

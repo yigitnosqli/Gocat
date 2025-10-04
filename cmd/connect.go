@@ -81,6 +81,9 @@ func init() {
 	connectCmd.MarkFlagsMutuallyExclusive("connect-ipv4", "connect-ipv6")
 }
 
+// runConnect parses command-line arguments and root persistent flags, applies them to the local configuration, and initiates a connection to the target host and port using the configured shell.
+// If a single positional argument is provided it is treated as a port and the host defaults to 127.0.0.1. When the "sh-exec" persistent flag is used the specified command is stored in the GOCAT_SH_EXEC environment variable.
+// On connection failure the function logs a fatal error and exits the process.
 func runConnect(cmd *cobra.Command, args []string) {
 	var host, port string
 
@@ -244,6 +247,11 @@ func connect(host, port, shell string) error {
 	}
 }
 
+// dialWithOptions dials the given network and address using the configured options.
+// It applies the configured dial timeout, binds the local endpoint to the configured
+// source address and port when provided, routes the connection through a configured
+// proxy if set, and performs TLS handshake when SSL is enabled.
+// It returns the established net.Conn on success or an error on failure.
 func dialWithOptions(network, address string) (net.Conn, error) {
 	var dialer net.Dialer
 	dialer.Timeout = timeout
@@ -335,6 +343,11 @@ func dialWithHTTPProxy(network, address string, proxyURL *url.URL, dialer *net.D
 	return proxyConn, nil
 }
 
+// dialWithTLS establishes a TLS connection to the given network and address using the provided dialer.
+// It configures TLS with a minimum version of TLS 1.2 and sets InsecureSkipVerify according to verifyCert,
+// optionally loads a CA bundle from caCertFile, and applies persistent flags for server name, cipher suites,
+// and ALPN protocols.
+// It returns a TLS-wrapped net.Conn on success or an error if configuration or handshake fails.
 func dialWithTLS(network, address string, dialer *net.Dialer) (net.Conn, error) {
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: !verifyCert,

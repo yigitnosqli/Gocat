@@ -59,6 +59,7 @@ Examples:
 	Run: runDNSTunnel,
 }
 
+// required "domain" flag.
 func init() {
 	rootCmd.AddCommand(dnsTunnelCmd)
 
@@ -73,6 +74,9 @@ func init() {
 	dnsTunnelCmd.MarkFlagRequired("domain")
 }
 
+// runDNSTunnel validates CLI mode flags and dispatches execution to the selected DNS tunnel mode.
+// It enforces that exactly one of server or client mode is set and that `--target` is provided when server mode is selected.
+// On invalid configuration it logs a fatal error and exits the process.
 func runDNSTunnel(cmd *cobra.Command, args []string) {
 	if !dnsTunnelServer && !dnsTunnelClient {
 		logger.Fatal("Specify either --server or --client mode")
@@ -92,6 +96,8 @@ func runDNSTunnel(cmd *cobra.Command, args []string) {
 	}
 }
 
+// runDNSTunnelServer starts the DNS tunnel server by listening for DNS queries on dnsTunnelListen,
+// accepting UDP requests, spawning a goroutine to handle each query, and running periodic session cleanup.
 func runDNSTunnelServer() {
 	logger.Info("Starting DNS tunnel server on %s", dnsTunnelListen)
 	logger.Info("Domain: %s", dnsTunnelDomain)
@@ -126,6 +132,12 @@ func runDNSTunnelServer() {
 	}
 }
 
+// handleDNSQuery parses a DNS query and handles DNS-tunnel requests for the configured tunnel domain.
+// 
+// If the query is not for the tunnel domain it sends a DNS name-error response. For tunnel requests it
+// extracts the session ID and encoded payload, decodes and forwards the payload to the session's target
+// TCP connection (creating the session and connection if needed), and then returns any buffered response
+// bytes to the DNS client in a TXT response. On protocol or I/O failures it sends an appropriate DNS error response.
 func handleDNSQuery(conn *net.UDPConn, clientAddr *net.UDPAddr, query []byte) {
 	// Parse DNS query
 	if len(query) < 12 {
@@ -196,6 +208,11 @@ func handleDNSQuery(conn *net.UDPConn, clientAddr *net.UDPAddr, query []byte) {
 	sendDNSResponse(conn, clientAddr, query, responseData)
 }
 
+// parseDNSQuery extracts the queried domain name from a DNS query packet and
+// returns the domain and the remaining bytes following the domain label sequence.
+// The function expects a standard DNS header (12 bytes) followed by label-encoded
+// QNAME; on malformed or too-short input it returns an empty domain and nil
+// remainder.
 func parseDNSQuery(query []byte) (string, []byte) {
 	if len(query) < 12 {
 		return "", nil
@@ -231,6 +248,13 @@ func parseDNSQuery(query []byte) (string, []byte) {
 	return domain.String(), remainder
 }
 
+// extractTunnelData extracts a session identifier and the encoded payload portion from a full DNS query domain,
+// relative to the configured base domain.
+// 
+// The domain is expected in the form: "<encoded>.<sessionID>.<baseDomain>". The function strips the base domain,
+// splits the remaining prefix by dots, and returns the last label as the sessionID and the concatenation of the
+// preceding labels (with no separators) as data.
+// If the prefix does not contain at least two labels, it returns sessionID "default" and an empty data string.
 func extractTunnelData(domain, baseDomain string) (sessionID, data string) {
 	// Remove base domain
 	prefix := strings.TrimSuffix(domain, "."+baseDomain)
@@ -248,6 +272,9 @@ func extractTunnelData(domain, baseDomain string) (sessionID, data string) {
 	return sessionID, data
 }
 
+// decodeTunnelData decodes an encoded tunnel payload according to the dnsTunnelEncoding setting.
+// Supported encodings are "base32" (DNS-safe, case-insensitive), "base64" (URL-safe), and "hex".
+// For any other encoding value the raw input bytes are returned. If decoding fails the function returns a nil or empty byte slice.
 func decodeTunnelData(encoded string) []byte {
 	switch dnsTunnelEncoding {
 	case "base32":
@@ -265,6 +292,12 @@ func decodeTunnelData(encoded string) []byte {
 	}
 }
 
+// encodeTunnelData encodes the provided bytes according to the global dnsTunnelEncoding setting.
+// Supported encodings:
+// - "base32": lowercase Base32 (raw, no padding)
+// - "base64": URL-safe Base64 (raw, no padding)
+// - "hex": hexadecimal
+// For any other encoding value, the raw byte slice is returned as a string.
 func encodeTunnelData(data []byte) string {
 	switch dnsTunnelEncoding {
 	case "base32":
@@ -278,6 +311,8 @@ func encodeTunnelData(data []byte) string {
 	}
 }
 
+// getOrCreateSession returns the dnsSession for the given session ID, creating and storing a new session if none exists.
+// It also updates the session's lastActive timestamp to the current time.
 func getOrCreateSession(sessionID string) *dnsSession {
 	dnsSessions.mu.Lock()
 	defer dnsSessions.mu.Unlock()
@@ -297,6 +332,8 @@ func getOrCreateSession(sessionID string) *dnsSession {
 	return session
 }
 
+// readTargetResponses reads from the session's target TCP connection and appends any received bytes to the session's buffer until the connection is closed or a read error occurs.
+// It acquires the session mutex when mutating the buffer or closing the connection to ensure concurrent safety and logs read errors and lifecycle events.
 func readTargetResponses(session *dnsSession, _ *net.UDPConn, _ *net.UDPAddr) {
 	buf := make([]byte, 200) // Small chunks for DNS
 	for {
@@ -327,6 +364,12 @@ func readTargetResponses(session *dnsSession, _ *net.UDPConn, _ *net.UDPAddr) {
 	logger.Debug("Target connection closed for session %s", session.id)
 }
 
+// sendDNSResponse constructs a DNS response containing a single TXT answer and sends it to the client address.
+// 
+// The response reuses the request header, marks the packet as a standard response with recursion available,
+// and includes one TXT record whose payload is the tunnel-encoded `data`. The TXT payload is truncated to
+// at most 255 bytes if necessary and the record TTL is set to 60 seconds. The finalized DNS packet is written
+// to `clientAddr` using `conn`.
 func sendDNSResponse(conn *net.UDPConn, clientAddr *net.UDPAddr, query []byte, data []byte) {
 	// Build DNS response
 	response := make([]byte, 512)
@@ -404,6 +447,8 @@ func sendDNSResponse(conn *net.UDPConn, clientAddr *net.UDPAddr, query []byte, d
 	conn.WriteToUDP(response[:pos], clientAddr)
 }
 
+// sendDNSError sends a DNS response with RCODE Name Error (3) for the provided query to the client address.
+// It copies the original query, sets the DNS header flags to indicate a name error, and writes the response to the UDP connection.
 func sendDNSError(conn *net.UDPConn, clientAddr *net.UDPAddr, query []byte) {
 	response := make([]byte, len(query))
 	copy(response, query)
@@ -412,6 +457,11 @@ func sendDNSError(conn *net.UDPConn, clientAddr *net.UDPAddr, query []byte) {
 	conn.WriteToUDP(response, clientAddr)
 }
 
+// cleanupDNSSessions periodically removes idle DNS tunneling sessions.
+// 
+// It runs an internal 60-second ticker and for each session whose lastActive
+// timestamp is more than 5 minutes in the past it closes any open target
+// connection and deletes the session from the in-memory session store.
 func cleanupDNSSessions() {
 	ticker := time.NewTicker(60 * time.Second)
 	defer ticker.Stop()
@@ -433,6 +483,10 @@ func cleanupDNSSessions() {
 	}
 }
 
+// runDNSTunnelClient starts a DNS-tunnel client that listens on the local TCP address
+// configured by dnsTunnelListen, accepts incoming connections, and spawns a goroutine
+// per connection to forward traffic over DNS TXT queries to the configured DNS server
+// and relay responses back to the local peer.
 func runDNSTunnelClient() {
 	logger.Info("Starting DNS tunnel client")
 	logger.Info("Domain: %s", dnsTunnelDomain)
@@ -458,6 +512,12 @@ func runDNSTunnelClient() {
 	}
 }
 
+// handleDNSTunnelClient manages a local TCP client connection for the DNS tunnel.
+// It reads application data from conn, encodes it into DNS TXT queries using a
+// per-connection session ID, sends those queries to the configured DNS server,
+// and writes any TXT response payloads back to the local connection.
+// The function logs read errors, runs until the local connection is closed or EOF,
+// and closes conn before returning.
 func handleDNSTunnelClient(conn net.Conn) {
 	defer conn.Close()
 
@@ -487,6 +547,12 @@ func handleDNSTunnelClient(conn net.Conn) {
 	}
 }
 
+// sendDNSQueryAndWait sends a DNS TXT query for the given domain to the configured DNS server
+// and returns the decoded TXT record payload from the response or nil on error.
+//
+// The function contacts 8.8.8.8 using the package-level dnsTunnelDNSPort, waits up to 5 seconds
+// for a reply, and parses the TXT data using parseDNSResponse. It returns nil if sending,
+// receiving, or parsing fails.
 func sendDNSQueryAndWait(domain string) []byte {
 	// Build DNS query
 	query := buildDNSQuery(domain)
@@ -519,6 +585,10 @@ func sendDNSQueryAndWait(domain string) []byte {
 	return parseDNSResponse(buf[:n])
 }
 
+// buildDNSQuery builds a DNS query packet for the given domain that requests a TXT record.
+// The packet uses a fixed transaction ID (0x1234), standard query flags, and a single question;
+// the domain is encoded in DNS label format and QTYPE is set to TXT (16) with QCLASS IN (1).
+// The function returns the raw DNS query bytes ready to be sent over UDP.
 func buildDNSQuery(domain string) []byte {
 	query := make([]byte, 512)
 	
@@ -559,6 +629,8 @@ func buildDNSQuery(domain string) []byte {
 	return query[:pos]
 }
 
+// parseDNSResponse parses a DNS response and returns the decoded payload from the first TXT answer
+// using the tunnel's configured encoding. It returns nil if the response is malformed or contains no TXT data.
 func parseDNSResponse(response []byte) []byte {
 	// Simple TXT record parser
 	// This is a simplified version
