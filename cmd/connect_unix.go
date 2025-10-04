@@ -8,9 +8,9 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"syscall"
 
 	"github.com/ibrahmsql/gocat/internal/logger"
+	"golang.org/x/sys/unix"
 )
 
 func connectUnix(conn net.Conn, shell string) error {
@@ -50,13 +50,13 @@ func connectUnix(conn net.Conn, shell string) error {
 	}
 
 	// Duplicate file descriptor for stdin, stdout, stderr
-	if err := syscall.Dup2(fd, int(os.Stdin.Fd())); err != nil {
+	if err := unix.Dup2(fd, int(os.Stdin.Fd())); err != nil {
 		return fmt.Errorf("failed to dup stdin: %v", err)
 	}
-	if err := syscall.Dup2(fd, int(os.Stdout.Fd())); err != nil {
+	if err := unix.Dup2(fd, int(os.Stdout.Fd())); err != nil {
 		return fmt.Errorf("failed to dup stdout: %v", err)
 	}
-	if err := syscall.Dup2(fd, int(os.Stderr.Fd())); err != nil {
+	if err := unix.Dup2(fd, int(os.Stderr.Fd())); err != nil {
 		return fmt.Errorf("failed to dup stderr: %v", err)
 	}
 

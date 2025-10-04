@@ -422,11 +422,6 @@ func validateScriptFile(scriptPath string) error {
 	return nil
 }
 
-// isLuaFile checks if the file has a Lua extension
-func isLuaFile(filename string) bool {
-	return strings.HasSuffix(strings.ToLower(filename), luaExtension)
-}
-
 func init() {
 	// Add subcommands
 	scriptCmd.AddCommand(scriptRunCmd)

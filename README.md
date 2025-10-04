@@ -38,10 +38,12 @@
 
 ### 🌐 Network Protocols
 - ✅ **TCP/UDP Support**: Full support for both protocols with advanced options
-- ✅ **IPv4/IPv6**: Native dual-stack support
-- ✅ **SSL/TLS**: Secure connections with certificate validation
+- ✅ **IPv4/IPv6**: Native dual-stack support with proper formatting
+- ✅ **SSL/TLS**: Secure connections with TLS 1.2+ and certificate validation
 - ✅ **Proxy Support**: SOCKS5 and HTTP proxy support
 - ✅ **Keep-Alive**: Configurable connection keep-alive
+- ✅ **HTTP Reverse Proxy**: Load balancing with health checks
+- ✅ **Protocol Converter**: TCP↔UDP, HTTP↔WebSocket conversion
 
 ### 🔧 Advanced Features
 - ✅ **Interactive Mode**: Full PTY support with command history
@@ -51,11 +53,12 @@
 - ✅ **Concurrent Connections**: Handle multiple connections simultaneously
 - ✅ **Comprehensive Logging**: Structured logging with multiple levels
 
-### 🔧 Advanced Features
-- **Interactive Mode**: Real-time bidirectional communication
+### 🚀 New Features 
+- **SSH Tunneling**: Local, remote, and dynamic SOCKS proxy tunnels
+- **DNS Tunneling**: Covert channel for firewall bypass
+- **Multi-Port Listener**: Listen on multiple ports simultaneously
 - **File Transfer**: Efficient file sending and receiving
 - **Command Execution**: Execute commands on remote systems
-- **Multiple Connections**: Handle multiple simultaneous connections
 - **Connection Persistence**: Keep connections alive with heartbeat
 
 ### 🎨 User Experience
@@ -207,6 +210,79 @@ gocat scan example.com 1-1000
 
 # Scan with timeout
 gocat scan --timeout 5s example.com 1-65535
+```
+
+#### 🌐 HTTP Reverse Proxy
+```bash
+# Simple reverse proxy
+gocat proxy --listen :8080 --target http://backend:80
+
+# Load balancing with multiple backends
+gocat proxy --listen :8080 --backends http://backend1:80,http://backend2:80
+
+# With health checks and SSL
+gocat proxy --listen :443 --backends http://backend1:80,http://backend2:80 \
+  --health-check /health --ssl --cert cert.pem --key key.pem
+
+# Different load balancing algorithms
+gocat proxy --listen :8080 --backends http://b1:80,http://b2:80 --lb-algorithm least-connections
+```
+
+#### 🔄 Protocol Converter
+```bash
+# TCP to UDP conversion
+gocat convert --from tcp:8080 --to udp:backend:9000
+
+# UDP to TCP conversion
+gocat convert --from udp:8080 --to tcp:backend:9000
+
+# HTTP to WebSocket
+gocat convert --from http:8080 --to ws://backend:9000/ws
+
+# WebSocket to TCP
+gocat convert --from ws:8080 --to tcp:backend:9000
+```
+
+#### 🔌 Multi-Port Listener
+```bash
+# Listen on multiple ports
+gocat multi-listen --ports 8080,8081,8082
+
+# Listen on port range
+gocat multi-listen --range 8000-8100
+
+# With command execution
+gocat multi-listen --ports 8080,8081 --exec /bin/bash
+
+# With statistics
+gocat multi-listen --range 8000-8010 --stats
+```
+
+#### 🚇 SSH Tunneling
+```bash
+# Local port forwarding (access remote service locally)
+gocat tunnel --ssh user@server --local 8080 --remote localhost:80
+
+# Remote port forwarding (expose local service remotely)
+gocat tunnel --ssh user@server --reverse --local 3000 --remote 8080
+
+# Dynamic SOCKS proxy
+gocat tunnel --ssh user@server --dynamic 1080
+
+# With SSH key authentication
+gocat tunnel --ssh user@server --key ~/.ssh/id_rsa --local 8080 --remote 80
+```
+
+#### 🌐 DNS Tunneling
+```bash
+# Start DNS tunnel server
+gocat dns-tunnel --server --domain tunnel.example.com --listen :53 --target localhost:8080
+
+# Start DNS tunnel client
+gocat dns-tunnel --client --domain tunnel.example.com --listen :8080
+
+# With different encoding
+gocat dns-tunnel --server --domain tunnel.example.com --encoding hex
 ```
 
 #### 🌐 Proxy Usage
