@@ -48,6 +48,12 @@ Examples:
 	Run: runTunnel,
 }
 
+// init registers the tunnel subcommand and configures its command-line flags.
+//
+// It adds tunnelCmd to the root command, defines flags for SSH connection,
+// local/remote addresses, mode toggles (reverse, dynamic), authentication
+// options (key, password, user), and compression, and marks the "ssh" flag
+// as required.
 func init() {
 	rootCmd.AddCommand(tunnelCmd)
 
@@ -64,6 +70,10 @@ func init() {
 	tunnelCmd.MarkFlagRequired("ssh")
 }
 
+// runTunnel establishes an SSH connection based on global flags and starts the selected tunnel mode.
+// It parses the SSH target, constructs client authentication (key and/or password), connects to the SSH server,
+// and dispatches to runLocalTunnel, runReverseTunnel, or runDynamicTunnel according to flags.
+// The function logs a fatal error and exits if required flags are missing, authentication is not configured, or the SSH connection cannot be established.
 func runTunnel(cmd *cobra.Command, args []string) {
 	// Parse SSH connection string
 	user, host, port := parseSSHConnection(tunnelSSH)
@@ -137,6 +147,7 @@ func runTunnel(cmd *cobra.Command, args []string) {
 	}
 }
 
+// cannot be loaded, it returns a callback that accepts any host key (insecure).
 func createHostKeyCallback() ssh.HostKeyCallback {
 	// Try to load known_hosts file
 	knownHostsPath := os.Getenv("HOME") + "/.ssh/known_hosts"
@@ -155,6 +166,10 @@ func createHostKeyCallback() ssh.HostKeyCallback {
 	return ssh.InsecureIgnoreHostKey()
 }
 
+// parseSSHConnection parses an SSH connection string of the form "user@host:port".
+// If the user is omitted, the current OS user from $USER is used; if that is empty, "root" is used.
+// If the port is omitted, "22" is used.
+// It returns the parsed user, host, and port.
 func parseSSHConnection(conn string) (user, host, port string) {
 	// Parse user@host:port
 	parts := strings.Split(conn, "@")
@@ -180,7 +195,8 @@ func parseSSHConnection(conn string) (user, host, port string) {
 	return user, host, port
 }
 
-// Local port forwarding: -L local:remote
+// runLocalTunnel starts a local TCP listener on localAddr and forwards each incoming connection to remoteAddr through the provided SSH client.
+// It accepts connections in a loop and handles each connection concurrently; the listener is closed when the function returns.
 func runLocalTunnel(client *ssh.Client, localAddr, remoteAddr string) {
 	logger.Info("Starting local tunnel: %s -> %s", localAddr, remoteAddr)
 
@@ -203,6 +219,8 @@ func runLocalTunnel(client *ssh.Client, localAddr, remoteAddr string) {
 	}
 }
 
+// handleLocalTunnelConnection forwards data between an accepted local connection and a remote address over the provided SSH client.
+// It dials the remote address through the SSH connection, performs bidirectional copying of data until one side closes, and ensures both connections are closed when finished.
 func handleLocalTunnelConnection(client *ssh.Client, localConn net.Conn, remoteAddr string) {
 	defer localConn.Close()
 
@@ -232,7 +250,11 @@ func handleLocalTunnelConnection(client *ssh.Client, localConn net.Conn, remoteA
 	<-done
 }
 
-// Remote port forwarding: -R remote:local
+// runReverseTunnel starts a reverse SSH tunnel by asking the SSH server to listen on remoteAddr
+// and forwarding each incoming remote connection to localAddr on the client side.
+// remoteAddr and localAddr are network addresses (for example "host:port" or ":port").
+// The function accepts connections in a loop and forwards them concurrently; it logs a fatal error
+// if it fails to establish the remote listener.
 func runReverseTunnel(client *ssh.Client, localAddr, remoteAddr string) {
 	logger.Info("Starting reverse tunnel: %s <- %s", remoteAddr, localAddr)
 
@@ -256,6 +278,10 @@ func runReverseTunnel(client *ssh.Client, localAddr, remoteAddr string) {
 	}
 }
 
+// handleReverseTunnelConnection establishes a TCP connection to localAddr and proxies data
+// bidirectionally between the provided remoteConn and the newly created local connection
+// until one side closes. Both connections are closed when the function returns; if dialing
+// localAddr fails the function logs the error and returns.
 func handleReverseTunnelConnection(remoteConn net.Conn, localAddr string) {
 	defer remoteConn.Close()
 
@@ -285,7 +311,9 @@ func handleReverseTunnelConnection(remoteConn net.Conn, localAddr string) {
 	<-done
 }
 
-// Dynamic SOCKS proxy: -D port
+// runDynamicTunnel starts a SOCKS5 proxy bound to localAddr that forwards proxied
+// connections through the provided SSH client. It listens for incoming TCP
+// connections on localAddr and handles each accepted connection concurrently.
 func runDynamicTunnel(client *ssh.Client, localAddr string) {
 	logger.Info("Starting dynamic SOCKS proxy on %s", localAddr)
 
@@ -308,6 +336,12 @@ func runDynamicTunnel(client *ssh.Client, localAddr string) {
 	}
 }
 
+// handleSOCKSConnection handles a single SOCKS5 client connection on conn, negotiates the SOCKS5 handshake,
+// resolves the target address (IPv4 or domain name), establishes a TCP connection to that target through
+// the provided SSH client, and proxies data bidirectionally until one side closes.
+//
+// It supports IPv4 and domain-name address types; IPv6 is not supported. On failure to establish the
+// remote connection a SOCKS failure response is sent. The client connection is closed when this function returns.
 func handleSOCKSConnection(client *ssh.Client, conn net.Conn) {
 	defer conn.Close()
 

@@ -396,7 +396,8 @@ func parseScriptInfo(content string) ScriptInfo {
 	return info
 }
 
-// validateScriptFile validates script file size and permissions
+// validateScriptFile checks that the script at scriptPath exists, is not larger than maxScriptSize, and can be opened for reading.
+// It returns an error if the file does not exist or is inaccessible, if its size exceeds the allowed limit, or if it cannot be opened.
 func validateScriptFile(scriptPath string) error {
 	fileInfo, err := os.Stat(scriptPath)
 	if err != nil {
@@ -422,6 +423,7 @@ func validateScriptFile(scriptPath string) error {
 	return nil
 }
 
+// top-level script command to the root command.
 func init() {
 	// Add subcommands
 	scriptCmd.AddCommand(scriptRunCmd)

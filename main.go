@@ -17,6 +17,8 @@ var (
 	builtBy   = "unknown"
 )
 
+// main sets build metadata for the command package, runs the root command, and exits with status 1 if command execution returns an error.
+// It propagates ldflags-provided build information (version, buildTime, gitCommit, gitBranch, builtBy) to cmd before invoking cmd.Execute().
 func main() {
 	// Set build information for cmd package
 	cmd.SetBuildInfo(version, buildTime, gitCommit, gitBranch, builtBy)
@@ -26,6 +28,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+
 }
 
 // showVersion displays version information
@@ -42,3 +45,6 @@ func showVersion() {
 	fmt.Printf("  OS/Arch:     %s/%s\n", runtime.GOOS, runtime.GOARCH)
 	fmt.Printf("  CPUs:        %d\n", runtime.NumCPU())
 }
+
+}
+

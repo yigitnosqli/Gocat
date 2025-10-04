@@ -41,6 +41,11 @@ Examples:
 	Run: runConvert,
 }
 
+// init registers the "convert" command with the root command and defines its CLI flags.
+//
+// It adds the --from and --to string flags for specifying source and target
+// protocol:address pairs (required), and the --buffer int flag for configuring
+// the data transfer buffer size.
 func init() {
 	rootCmd.AddCommand(convertCmd)
 
@@ -52,6 +57,8 @@ func init() {
 	convertCmd.MarkFlagRequired("to")
 }
 
+// runConvert parses the global convertFrom and convertTo flags, logs the conversion start, and dispatches to the appropriate protocol conversion handler.
+// It invokes the corresponding converter (e.g., tcpToUDP, httpToWebSocket) and exits with a fatal log if the source or target protocol is unsupported.
 func runConvert(cmd *cobra.Command, args []string) {
 	fromProto, fromAddr := parseProtocolAddress(convertFrom)
 	toProto, toAddr := parseProtocolAddress(convertTo)
@@ -104,6 +111,11 @@ func runConvert(cmd *cobra.Command, args []string) {
 	}
 }
 
+// parseProtocolAddress splits an input of the form "protocol:address" and returns
+// the protocol and the address parts.
+//
+// If the input does not contain a single ':' separator, the function logs a fatal
+// error and exits the program.
 func parseProtocolAddress(addr string) (string, string) {
 	parts := strings.SplitN(addr, ":", 2)
 	if len(parts) != 2 {
@@ -112,7 +124,10 @@ func parseProtocolAddress(addr string) (string, string) {
 	return parts[0], parts[1]
 }
 
-// TCP to UDP conversion
+// tcpToUDP starts a TCP listener on tcpAddr and, for each accepted connection,
+// launches a goroutine to forward bidirectional traffic between that TCP
+// connection and the UDP address udpAddr via handleTCPToUDP.
+// It logs a fatal error and exits if it cannot start listening on tcpAddr.
 func tcpToUDP(tcpAddr, udpAddr string) {
 	listener, err := net.Listen("tcp", tcpAddr)
 	if err != nil {
@@ -133,6 +148,13 @@ func tcpToUDP(tcpAddr, udpAddr string) {
 	}
 }
 
+// handleTCPToUDP bridges data between a TCP connection and a remote UDP address.
+// 
+// It forwards bytes read from the TCP connection to the UDP address and forwards
+// packets read from the UDP connection back to the TCP connection until either
+// side closes or an I/O error occurs. The TCP connection is closed when the
+// function returns; the UDP connection is created for the duration of the
+// function. Errors encountered while reading or writing are logged.
 func handleTCPToUDP(tcpConn net.Conn, udpAddr string) {
 	defer tcpConn.Close()
 
@@ -183,7 +205,14 @@ func handleTCPToUDP(tcpConn net.Conn, udpAddr string) {
 	wg.Wait()
 }
 
-// UDP to TCP conversion
+// udpToTCP listens for UDP packets on udpAddr and forwards each UDP client's datagrams
+// over a dedicated TCP connection to tcpAddr.
+//
+// For each distinct UDP client address it creates (and reuses) a TCP connection to the
+// target address. Datagrams received from a UDP client are written to that client's
+// TCP connection, and responses read from the TCP connection are sent back to the
+// originating UDP client. When a TCP connection closes or encounters an error it is
+// closed and removed from the client map; the function continues serving other clients.
 func udpToTCP(udpAddr, tcpAddr string) {
 	udpConn, err := net.ListenPacket("udp", udpAddr)
 	if err != nil {
@@ -244,7 +273,9 @@ func udpToTCP(udpAddr, tcpAddr string) {
 	}
 }
 
-// TCP to TCP (simple proxy)
+// tcpToTCP starts a TCP proxy that listens on listenAddr and forwards each incoming connection to targetAddr.
+// For each accepted client it dials the target and copies data bidirectionally between the client and target until either side closes.
+// It logs the listening state, calls logger.Fatal if the initial listen fails, and logs accept/connect/runtime errors.
 func tcpToTCP(listenAddr, targetAddr string) {
 	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
@@ -289,7 +320,8 @@ func tcpToTCP(listenAddr, targetAddr string) {
 	}
 }
 
-// UDP to UDP (simple proxy)
+// udpToUDP starts a UDP proxy that listens on listenAddr and forwards packets to targetAddr.
+// Currently this function is a placeholder and does not perform the proxying; it logs a warning and returns.
 func udpToUDP(listenAddr, targetAddr string) {
 	logger.Info("UDP->UDP proxy listening on %s, forwarding to %s", listenAddr, targetAddr)
 	
@@ -298,7 +330,10 @@ func udpToUDP(listenAddr, targetAddr string) {
 	logger.Warn("UDP->UDP conversion not yet implemented")
 }
 
-// TCP to WebSocket
+// tcpToWebSocket starts a TCP listener on tcpAddr and forwards each accepted TCP connection to a backend WebSocket at wsURL.
+// tcpAddr is the address to listen on (for example ":8080" or "0.0.0.0:9000").
+// wsURL is the target WebSocket URL (for example "ws://host:port/path").
+// For each incoming TCP connection the function delegates forwarding to handleTCPToWebSocket and continues accepting new connections.
 func tcpToWebSocket(tcpAddr, wsURL string) {
 	listener, err := net.Listen("tcp", tcpAddr)
 	if err != nil {
@@ -319,6 +354,10 @@ func tcpToWebSocket(tcpAddr, wsURL string) {
 	}
 }
 
+// handleTCPToWebSocket bridges data between a local TCP connection and a remote WebSocket URL.
+// It forwards raw bytes read from the TCP connection as binary WebSocket messages to the given
+// wsURL and writes binary WebSocket messages received from wsURL back to the TCP connection.
+// Both the TCP and WebSocket connections are closed when the bridge ends; runtime errors are logged.
 func handleTCPToWebSocket(tcpConn net.Conn, wsURL string) {
 	defer tcpConn.Close()
 
@@ -368,7 +407,7 @@ func handleTCPToWebSocket(tcpConn net.Conn, wsURL string) {
 	wg.Wait()
 }
 
-// HTTP to WebSocket
+// The function blocks serving requests and logs fatal on server errors. It returns after ListenAndServe fails.
 func httpToWebSocket(httpAddr, wsURL string) {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
@@ -429,7 +468,9 @@ func httpToWebSocket(httpAddr, wsURL string) {
 	}
 }
 
-// WebSocket to TCP
+// webSocketToTCP upgrades incoming HTTP requests at wsAddr to WebSocket connections and proxies bidirectional binary data between each WebSocket client and a TCP server at tcpAddr.
+// 
+// For each upgraded WebSocket connection a TCP connection to tcpAddr is established; messages received from the WebSocket are written to the TCP connection, and bytes read from the TCP connection are sent back to the WebSocket as binary messages. The function starts an HTTP server that listens on wsAddr and blocks until the server stops; errors are logged and fatal errors terminate the process.
 func webSocketToTCP(wsAddr, tcpAddr string) {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
@@ -491,7 +532,9 @@ func webSocketToTCP(wsAddr, tcpAddr string) {
 	}
 }
 
-// WebSocket to HTTP
+// webSocketToHTTP listens for WebSocket connections on wsAddr and forwards their messages to the HTTP endpoint at httpURL.
+// The intended behavior is to translate WebSocket message streams into HTTP requests and map HTTP responses back to the WebSocket,
+// but this conversion is not yet implemented and currently only logs a warning and a debug message.
 func webSocketToHTTP(wsAddr, httpURL string) {
 	logger.Warn("WebSocket->HTTP conversion not yet fully implemented")
 	logger.Debug("Would listen on %s and forward to %s", wsAddr, httpURL)
