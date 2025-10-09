@@ -4,11 +4,15 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/gorilla/websocket"
 	"github.com/ibrahmsql/gocat/internal/logger"
+	wsconv "github.com/ibrahmsql/gocat/internal/websocket"
 	"github.com/spf13/cobra"
 )
 
@@ -52,7 +56,7 @@ func init() {
 	convertCmd.Flags().StringVar(&convertFrom, "from", "", "Source protocol and address (e.g., tcp:8080, udp:8080, http:8080)")
 	convertCmd.Flags().StringVar(&convertTo, "to", "", "Target protocol and address (e.g., tcp:host:9000, udp:host:9000)")
 	convertCmd.Flags().IntVar(&convertBuffer, "buffer", 8192, "Buffer size for data transfer")
-	
+
 	convertCmd.MarkFlagRequired("from")
 	convertCmd.MarkFlagRequired("to")
 }
@@ -77,7 +81,7 @@ func runConvert(cmd *cobra.Command, args []string) {
 		default:
 			logger.Fatal("Unsupported conversion: tcp -> %s", toProto)
 		}
-	
+
 	case "udp":
 		switch toProto {
 		case "tcp":
@@ -87,7 +91,7 @@ func runConvert(cmd *cobra.Command, args []string) {
 		default:
 			logger.Fatal("Unsupported conversion: udp -> %s", toProto)
 		}
-	
+
 	case "http":
 		switch toProto {
 		case "ws", "websocket":
@@ -95,7 +99,7 @@ func runConvert(cmd *cobra.Command, args []string) {
 		default:
 			logger.Fatal("Unsupported conversion: http -> %s", toProto)
 		}
-	
+
 	case "ws", "websocket":
 		switch toProto {
 		case "tcp":
@@ -105,7 +109,7 @@ func runConvert(cmd *cobra.Command, args []string) {
 		default:
 			logger.Fatal("Unsupported conversion: websocket -> %s", toProto)
 		}
-	
+
 	default:
 		logger.Fatal("Unsupported source protocol: %s", fromProto)
 	}
@@ -149,7 +153,7 @@ func tcpToUDP(tcpAddr, udpAddr string) {
 }
 
 // handleTCPToUDP bridges data between a TCP connection and a remote UDP address.
-// 
+//
 // It forwards bytes read from the TCP connection to the UDP address and forwards
 // packets read from the UDP connection back to the TCP connection until either
 // side closes or an I/O error occurs. The TCP connection is closed when the
@@ -324,7 +328,7 @@ func tcpToTCP(listenAddr, targetAddr string) {
 // Currently this function is a placeholder and does not perform the proxying; it logs a warning and returns.
 func udpToUDP(listenAddr, targetAddr string) {
 	logger.Info("UDP->UDP proxy listening on %s, forwarding to %s", listenAddr, targetAddr)
-	
+
 	// Similar to udpToTCP but with UDP target
 	// Implementation similar to above
 	logger.Warn("UDP->UDP conversion not yet implemented")
@@ -469,7 +473,7 @@ func httpToWebSocket(httpAddr, wsURL string) {
 }
 
 // webSocketToTCP upgrades incoming HTTP requests at wsAddr to WebSocket connections and proxies bidirectional binary data between each WebSocket client and a TCP server at tcpAddr.
-// 
+//
 // For each upgraded WebSocket connection a TCP connection to tcpAddr is established; messages received from the WebSocket are written to the TCP connection, and bytes read from the TCP connection are sent back to the WebSocket as binary messages. The function starts an HTTP server that listens on wsAddr and blocks until the server stops; errors are logged and fatal errors terminate the process.
 func webSocketToTCP(wsAddr, tcpAddr string) {
 	upgrader := websocket.Upgrader{
@@ -533,11 +537,27 @@ func webSocketToTCP(wsAddr, tcpAddr string) {
 }
 
 // webSocketToHTTP listens for WebSocket connections on wsAddr and forwards their messages to the HTTP endpoint at httpURL.
-// The intended behavior is to translate WebSocket message streams into HTTP requests and map HTTP responses back to the WebSocket,
-// but this conversion is not yet implemented and currently only logs a warning and a debug message.
 func webSocketToHTTP(wsAddr, httpURL string) {
-	logger.Warn("WebSocket->HTTP conversion not yet fully implemented")
-	logger.Debug("Would listen on %s and forward to %s", wsAddr, httpURL)
-	// This would require buffering and request/response matching
-	// TODO: Implement WebSocket message to HTTP request conversion
+	logger.Info("Starting WebSocket->HTTP converter: %s -> %s", wsAddr, httpURL)
+
+	converter, err := wsconv.NewWebSocketToHTTPConverter(wsAddr, httpURL)
+	if err != nil {
+		logger.Error("Failed to create WebSocket->HTTP converter: %v", err)
+		return
+	}
+
+	// Handle graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		logger.Info("Shutting down WebSocket->HTTP converter...")
+		converter.Shutdown()
+	}()
+
+	logger.Info("WebSocket->HTTP converter started successfully")
+
+	// Keep the converter running
+	select {}
 }

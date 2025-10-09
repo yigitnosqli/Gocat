@@ -14,6 +14,7 @@ import (
 
 	"github.com/creack/pty"
 	"github.com/ibrahmsql/gocat/internal/logger"
+	"github.com/ibrahmsql/gocat/internal/network"
 	"github.com/ibrahmsql/gocat/internal/readline"
 	"github.com/ibrahmsql/gocat/internal/signals"
 	"github.com/ibrahmsql/gocat/internal/terminal"
@@ -30,6 +31,7 @@ var (
 	maxConnections  int
 	listenTimeout   time.Duration
 	listenUseUDP    bool
+	listenUseSCTP   bool
 	listenForceIPv6 bool
 	listenForceIPv4 bool
 	listenUseSSL    bool
@@ -109,6 +111,9 @@ func runListen(cmd *cobra.Command, args []string) {
 	if globalIPv6, _ := cmd.Root().PersistentFlags().GetBool("ipv6"); globalIPv6 {
 		listenForceIPv6 = true
 	}
+	if globalSCTP, _ := cmd.Root().PersistentFlags().GetBool("sctp"); globalSCTP {
+		listenUseSCTP = true
+	}
 	if globalMaxConns, _ := cmd.Root().PersistentFlags().GetInt("max-conns"); globalMaxConns > 0 {
 		maxConnections = globalMaxConns
 	}
@@ -181,6 +186,8 @@ func listen(host, port string) error {
 	network := "tcp"
 	if listenUseUDP {
 		network = "udp"
+	} else if listenUseSCTP {
+		network = "sctp"
 	}
 	if listenForceIPv6 {
 		network += "6"
@@ -196,6 +203,11 @@ func listen(host, port string) error {
 
 	var listener net.Listener
 	var err error
+
+	// Handle SCTP separately
+	if listenUseSCTP {
+		return handleSCTPListener(network, address)
+	}
 
 	// Handle SSL/TLS
 	if listenUseSSL {
@@ -305,6 +317,63 @@ func handleUDPListener(network, address string) error {
 		if _, err := udpConn.WriteToUDP(buffer[:n], clientAddr); err != nil {
 			logger.Error("UDP write error: %v", err)
 		}
+	}
+}
+
+func handleSCTPListener(netType, address string) error {
+	// Check if SCTP is supported
+	if !network.IsSCTPSupported() {
+		return fmt.Errorf("SCTP protocol not supported on this platform")
+	}
+
+	// Parse SCTP address
+	sctpAddr, err := network.ResolveSCTPAddr(netType, address)
+	if err != nil {
+		return fmt.Errorf("failed to resolve SCTP address: %w", err)
+	}
+
+	// Create SCTP listener
+	listener, err := network.ListenSCTP(netType, sctpAddr, nil)
+	if err != nil {
+		return fmt.Errorf("failed to bind SCTP: %w", err)
+	}
+	defer func() {
+		if err := listener.Close(); err != nil {
+			logger.Error("Error closing SCTP listener: %v", err)
+		}
+	}()
+
+	theme := logger.GetCurrentTheme()
+	if _, err := theme.Success.Printf("Listening on %s (SCTP)\n", address); err != nil {
+		logger.Error("Error printing success message: %v", err)
+	}
+
+	// Handle multiple connections with semaphore
+	connSemaphore := make(chan struct{}, maxConnections)
+	var wg sync.WaitGroup
+
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			logger.Error("Failed to accept SCTP connection: %v", err)
+			continue
+		}
+
+		// Acquire semaphore slot
+		connSemaphore <- struct{}{}
+		wg.Add(1)
+
+		go func(c net.Conn) {
+			defer func() {
+				if err := c.Close(); err != nil {
+					logger.Error("Error closing SCTP connection: %v", err)
+				}
+				<-connSemaphore // Release semaphore slot
+				wg.Done()
+			}()
+
+			handleConnection(c)
+		}(conn)
 	}
 }
 

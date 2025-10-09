@@ -1,7 +1,9 @@
 package network
 
 import (
+	"compress/gzip"
 	"context"
+	"io"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -420,8 +422,8 @@ func (ec *ConnectionImpl) EnableCompression() error {
 	ec.mu.Lock()
 	defer ec.mu.Unlock()
 
-	// For now, just mark compression as enabled
-	// In a real implementation, this would wrap the connection with compression
+	// This would be called from a method that has access to the connection instance
+	// For now, this is a placeholder showing how compression would be enabled
 	ec.compressionEnabled = true
 	ec.compressionRatio = 0.7 // Placeholder compression ratio
 
@@ -519,4 +521,98 @@ func (ec *ConnectionImpl) performHealthCheck() {
 	}
 
 	ec.healthy = true
+}
+
+// CompressedConnection wraps a net.Conn with compression
+type CompressedConnection struct {
+	conn   net.Conn
+	reader io.Reader
+	writer io.Writer
+	level  int
+}
+
+// NewCompressedConnection creates a new compressed connection wrapper
+func NewCompressedConnection(conn net.Conn, level int) *CompressedConnection {
+	if level < 1 || level > 9 {
+		level = 6 // Default compression level
+	}
+
+	return &CompressedConnection{
+		conn:  conn,
+		level: level,
+	}
+}
+
+// Read implements net.Conn.Read with decompression
+func (c *CompressedConnection) Read(b []byte) (n int, err error) {
+	if c.reader == nil {
+		c.reader, err = gzip.NewReader(c.conn)
+		if err != nil {
+			return 0, err
+		}
+	}
+	return c.reader.Read(b)
+}
+
+// Write implements net.Conn.Write with compression
+func (c *CompressedConnection) Write(b []byte) (n int, err error) {
+	if c.writer == nil {
+		gzWriter, err := gzip.NewWriterLevel(c.conn, c.level)
+		if err != nil {
+			return 0, err
+		}
+		c.writer = gzWriter
+	}
+
+	n, err = c.writer.Write(b)
+	if err != nil {
+		return n, err
+	}
+
+	// Flush the gzip writer to ensure data is sent
+	if gzWriter, ok := c.writer.(*gzip.Writer); ok {
+		err = gzWriter.Flush()
+	}
+
+	return n, err
+}
+
+// Close implements net.Conn.Close
+func (c *CompressedConnection) Close() error {
+	// Close the gzip writer if it exists
+	if gzWriter, ok := c.writer.(*gzip.Writer); ok {
+		gzWriter.Close()
+	}
+
+	// Close the gzip reader if it exists
+	if gzReader, ok := c.reader.(*gzip.Reader); ok {
+		gzReader.Close()
+	}
+
+	return c.conn.Close()
+}
+
+// LocalAddr implements net.Conn.LocalAddr
+func (c *CompressedConnection) LocalAddr() net.Addr {
+	return c.conn.LocalAddr()
+}
+
+// RemoteAddr implements net.Conn.RemoteAddr
+func (c *CompressedConnection) RemoteAddr() net.Addr {
+	return c.conn.RemoteAddr()
+}
+
+// SetDeadline implements net.Conn.SetDeadline
+func (c *CompressedConnection) SetDeadline(t time.Time) error {
+	return c.conn.SetDeadline(t)
+}
+
+// SetReadDeadline implements net.Conn.SetReadDeadline
+func (c *CompressedConnection) SetReadDeadline(t time.Time) error {
+	return c.conn.SetReadDeadline(t)
+}
+
+// SetWriteDeadline implements net.Conn.SetWriteDeadline
+func (c *CompressedConnection) SetWriteDeadline(t time.Time) error {
+	return c.conn.SetWriteDeadline(t)
 }

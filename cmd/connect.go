@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ibrahmsql/gocat/internal/logger"
+	"github.com/ibrahmsql/gocat/internal/network"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/proxy"
 )
@@ -29,6 +30,7 @@ var (
 	verifyCert       bool
 	caCertFile       string
 	useUDP           bool
+	useSCTP          bool
 	forceIPv6        bool
 	forceIPv4        bool
 	// Global flags for connect
@@ -108,6 +110,9 @@ func runConnect(cmd *cobra.Command, args []string) {
 	if globalIPv6, _ := cmd.Root().PersistentFlags().GetBool("ipv6"); globalIPv6 {
 		forceIPv6 = true
 	}
+	if globalSCTP, _ := cmd.Root().PersistentFlags().GetBool("sctp"); globalSCTP {
+		useSCTP = true
+	}
 	if globalWait, _ := cmd.Root().PersistentFlags().GetDuration("wait"); globalWait > 0 {
 		timeout = globalWait
 	}
@@ -179,6 +184,8 @@ func connect(host, port, shell string) error {
 	network := "tcp"
 	if useUDP {
 		network = "udp"
+	} else if useSCTP {
+		network = "sctp"
 	}
 	if forceIPv6 {
 		network += "6"
@@ -253,6 +260,11 @@ func connect(host, port, shell string) error {
 // proxy if set, and performs TLS handshake when SSL is enabled.
 // It returns the established net.Conn on success or an error on failure.
 func dialWithOptions(network, address string) (net.Conn, error) {
+	// Handle SCTP separately
+	if strings.Contains(network, "sctp") {
+		return dialSCTP(network, address)
+	}
+
 	var dialer net.Dialer
 	dialer.Timeout = timeout
 
@@ -282,6 +294,38 @@ func dialWithOptions(network, address string) (net.Conn, error) {
 	}
 
 	return dialer.Dial(network, address)
+}
+
+// dialSCTP establishes an SCTP connection to the given network and address
+func dialSCTP(netType, address string) (net.Conn, error) {
+	// Check if SCTP is supported
+	if !network.IsSCTPSupported() {
+		return nil, fmt.Errorf("SCTP protocol not supported on this platform")
+	}
+
+	// Parse remote address
+	raddr, err := network.ResolveSCTPAddr(netType, address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve SCTP address: %w", err)
+	}
+
+	// Parse local address if specified
+	var laddr *network.SCTPAddr
+	if sourceAddress != "" {
+		localAddress := net.JoinHostPort(sourceAddress, fmt.Sprintf("%d", sourcePort))
+		laddr, err = network.ResolveSCTPAddr(netType, localAddress)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve local SCTP address: %w", err)
+		}
+	}
+
+	// Dial with timeout
+	conn, err := network.DialSCTPTimeout(netType, laddr, raddr, timeout, nil)
+	if err != nil {
+		return nil, fmt.Errorf("SCTP dial failed: %w", err)
+	}
+
+	return conn, nil
 }
 
 func dialWithProxy(network, address string, dialer *net.Dialer) (net.Conn, error) {
