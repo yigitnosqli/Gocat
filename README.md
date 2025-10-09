@@ -65,15 +65,18 @@
 - **Colorful Output**: Syntax highlighting and colored logs
 - **Progress Bars**: Visual progress indicators for transfers
 - **Verbose Logging**: Detailed logging with multiple levels
-- **Shell Integration**: Bash and Zsh completion support
+- **Shell Integration**: Bash, Zsh, and Fish completion support
 - **Configuration Files**: YAML/JSON configuration support
+- **Man Pages**: Comprehensive manual pages
+- **Lua Scripting**: Extensible with Lua scripts
 
 ### 🔒 Security
-- **Encryption**: Built-in encryption for sensitive data
-- **Authentication**: User authentication mechanisms
-- **Rate Limiting**: Protection against abuse
-- **Input Validation**: Comprehensive input sanitization
-- **Audit Logging**: Security event logging
+- ✅ **Encryption**: AES-256-GCM and ChaCha20-Poly1305 encryption
+- ✅ **Authentication**: Token-based and password authentication
+- ✅ **Rate Limiting**: Per-IP and global rate limiting
+- ✅ **Access Control**: IP-based allow/deny lists with CIDR support
+- ✅ **Audit Logging**: Comprehensive security event logging
+- ✅ **Input Validation**: Extensive input sanitization and validation
 
 ---
 
@@ -236,11 +239,44 @@ gocat convert --from tcp:8080 --to udp:backend:9000
 # UDP to TCP conversion
 gocat convert --from udp:8080 --to tcp:backend:9000
 
-# HTTP to WebSocket
+# HTTP to WebSocket (NEW!)
 gocat convert --from http:8080 --to ws://backend:9000/ws
 
-# WebSocket to TCP
-gocat convert --from ws:8080 --to tcp:backend:9000
+# WebSocket to HTTP (NEW!)
+gocat convert --from ws:8080 --to http://backend:9000
+```
+
+#### 🔐 Encryption & Security
+```bash
+# Use encryption for connections
+gocat connect --encrypt --key mykey example.com 8080
+
+# Listen with authentication
+gocat listen --auth --user admin --password secret 8080
+
+# Rate limiting
+gocat listen --rate-limit 100 --per-ip-limit 10 8080
+
+# Access control
+gocat listen --allow 192.168.1.0/24 --deny 192.168.1.100 8080
+
+# Audit logging
+gocat listen --audit-log /var/log/gocat-audit.log 8080
+```
+
+#### 📜 Lua Scripting
+```bash
+# Execute Lua script
+gocat script scripts/examples/http_client.lua
+
+# Port scanner script
+gocat script scripts/examples/port_scanner.lua
+
+# Banner grabber
+gocat script scripts/examples/banner_grabber.lua
+
+# Custom SSL client
+gocat script scripts/examples/ssl_client.lua
 ```
 
 #### 🔌 Multi-Port Listener
