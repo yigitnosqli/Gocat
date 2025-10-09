@@ -338,12 +338,32 @@ install: build ## Install binary to system
 	@echo "$(BOLD)$(BLUE)📋 Installing $(PROJECT_NAME)...$(RESET)"
 	sudo cp $(BINARY_PATH) /usr/local/bin/$(BINARY_NAME)
 	sudo chmod +x /usr/local/bin/$(BINARY_NAME)
+	@echo "$(BOLD)$(BLUE)📋 Installing man page...$(RESET)"
+	sudo mkdir -p /usr/local/share/man/man1
+	sudo cp docs/gocat.1 /usr/local/share/man/man1/
+	sudo gzip -f /usr/local/share/man/man1/gocat.1
+	@echo "$(BOLD)$(BLUE)📋 Installing shell completions...$(RESET)"
+	@if [ -d "/usr/local/share/bash-completion/completions" ]; then \
+		sudo cp scripts/completions/gocat.bash /usr/local/share/bash-completion/completions/gocat; \
+	fi
+	@if [ -d "/usr/local/share/zsh/site-functions" ]; then \
+		sudo cp scripts/completions/gocat.zsh /usr/local/share/zsh/site-functions/_gocat; \
+	fi
+	@if [ -d "/usr/local/share/fish/vendor_completions.d" ]; then \
+		sudo cp scripts/completions/gocat.fish /usr/local/share/fish/vendor_completions.d/gocat.fish; \
+	fi
 	@echo "$(BOLD)$(GREEN)✅ $(PROJECT_NAME) installed to /usr/local/bin/$(RESET)"
+	@echo "$(BOLD)$(GREEN)✅ Man page installed$(RESET)"
+	@echo "$(BOLD)$(GREEN)✅ Shell completions installed$(RESET)"
 
 .PHONY: uninstall
 uninstall: ## Uninstall binary from system
 	@echo "$(BOLD)$(BLUE)🗑️  Uninstalling $(PROJECT_NAME)...$(RESET)"
 	sudo rm -f /usr/local/bin/$(BINARY_NAME)
+	sudo rm -f /usr/local/share/man/man1/gocat.1.gz
+	sudo rm -f /usr/local/share/bash-completion/completions/gocat
+	sudo rm -f /usr/local/share/zsh/site-functions/_gocat
+	sudo rm -f /usr/local/share/fish/vendor_completions.d/gocat.fish
 	@echo "$(BOLD)$(GREEN)✅ $(PROJECT_NAME) uninstalled$(RESET)"
 
 # 🧹 Clean targets
