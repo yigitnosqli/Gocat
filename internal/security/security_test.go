@@ -5,7 +5,6 @@ import (
 	"net"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ibrahmsql/gocat/internal/errors"
 )
@@ -288,121 +287,8 @@ func TestInputValidator_SanitizeInput(t *testing.T) {
 	}
 }
 
-func TestRateLimiter(t *testing.T) {
-	rl := NewRateLimiter(3, time.Second)
-	defer rl.Close()
-
-	// Test allowing requests under limit
-	for i := 0; i < 3; i++ {
-		if !rl.Allow("test-client") {
-			t.Errorf("Request %d should be allowed", i+1)
-		}
-	}
-
-	// Test blocking request over limit
-	if rl.Allow("test-client") {
-		t.Error("Request should be blocked (over limit)")
-	}
-
-	// Test different client
-	if !rl.Allow("other-client") {
-		t.Error("Request from different client should be allowed")
-	}
-
-	// Wait for window to reset
-	time.Sleep(time.Second + 100*time.Millisecond)
-
-	// Test allowing requests after window reset
-	if !rl.Allow("test-client") {
-		t.Error("Request should be allowed after window reset")
-	}
-}
-
-func TestRateLimiter_Reset(t *testing.T) {
-	rl := NewRateLimiter(2, time.Second)
-	defer rl.Close()
-
-	// Fill up the limit
-	rl.Allow("test-client")
-	rl.Allow("test-client")
-
-	// Should be blocked
-	if rl.Allow("test-client") {
-		t.Error("Request should be blocked")
-	}
-
-	// Reset the client
-	rl.Reset("test-client")
-
-	// Should be allowed again
-	if !rl.Allow("test-client") {
-		t.Error("Request should be allowed after reset")
-	}
-}
-
-func TestRateLimiter_GetStats(t *testing.T) {
-	rl := NewRateLimiter(5, time.Second)
-	defer rl.Close()
-
-	// Make some requests
-	rl.Allow("test-client")
-	rl.Allow("test-client")
-	rl.Allow("test-client")
-
-	stats := rl.GetStats("test-client")
-
-	if stats.Identifier != "test-client" {
-		t.Errorf("Stats identifier = %v, want %v", stats.Identifier, "test-client")
-	}
-
-	if stats.RequestCount != 3 {
-		t.Errorf("Stats request count = %v, want %v", stats.RequestCount, 3)
-	}
-
-	if stats.MaxRequests != 5 {
-		t.Errorf("Stats max requests = %v, want %v", stats.MaxRequests, 5)
-	}
-
-	if stats.RemainingQuota != 2 {
-		t.Errorf("Stats remaining quota = %v, want %v", stats.RemainingQuota, 2)
-	}
-
-	if stats.IsBlocked {
-		t.Error("Stats should not show blocked when under limit")
-	}
-
-	// Fill up the limit
-	rl.Allow("test-client")
-	rl.Allow("test-client")
-
-	stats = rl.GetStats("test-client")
-	if !stats.IsBlocked {
-		t.Error("Stats should show blocked when at limit")
-	}
-
-	if stats.RemainingQuota != 0 {
-		t.Errorf("Stats remaining quota = %v, want %v", stats.RemainingQuota, 0)
-	}
-}
-
-func TestRateLimiter_Cleanup(t *testing.T) {
-	rl := NewRateLimiter(3, 100*time.Millisecond)
-	defer rl.Close()
-
-	// Make requests
-	rl.Allow("test-client")
-	rl.Allow("test-client")
-
-	// Wait for cleanup
-	time.Sleep(200 * time.Millisecond)
-
-	// Should be able to make new requests (old ones cleaned up)
-	for i := 0; i < 3; i++ {
-		if !rl.Allow("test-client") {
-			t.Errorf("Request %d should be allowed after cleanup", i+1)
-		}
-	}
-}
+// RateLimiter tests moved to ratelimit_test.go
+// See ratelimit_test.go for comprehensive rate limiting tests
 
 func TestGenerateSecureToken(t *testing.T) {
 	tests := []struct {

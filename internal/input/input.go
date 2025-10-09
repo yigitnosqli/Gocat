@@ -2,6 +2,7 @@ package input
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -64,7 +65,19 @@ func ValidateShell(shell string) error {
 		return fmt.Errorf("shell cannot be empty")
 	}
 
-	// Basic validation - in a real implementation, you might check if the file exists
+	// Validate shell file exists and is executable
+	if _, err := os.Stat(shell); os.IsNotExist(err) {
+		return fmt.Errorf("shell does not exist: %s", shell)
+	} else if err != nil {
+		return fmt.Errorf("cannot access shell: %w", err)
+	}
+
+	// Check if shell is executable
+	file, err := os.Open(shell)
+	if err != nil {
+		return fmt.Errorf("cannot open shell for reading: %w", err)
+	}
+	file.Close()
 	if strings.Contains(shell, ";") || strings.Contains(shell, "&") {
 		return fmt.Errorf("shell path contains invalid characters")
 	}

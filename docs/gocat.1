@@ -1,0 +1,321 @@
+.TH GOCAT 1 "January 2025" "GoCat 1.0" "User Commands"
+.SH NAME
+gocat \- modern netcat alternative written in Go
+.SH SYNOPSIS
+.B gocat
+[\fIOPTIONS\fR] \fICOMMAND\fR [\fIARGS\fR...]
+.SH DESCRIPTION
+.B gocat
+is a modern, feature-rich netcat alternative written in Go. It provides
+network connectivity for TCP, UDP, Unix sockets, and more, with additional
+features like SSL/TLS support, rate limiting, authentication, and protocol
+conversion.
+.SH COMMANDS
+.TP
+.B connect \fIHOST PORT\fR
+Connect to a remote host on the specified port
+.TP
+.B listen \fIPORT\fR
+Listen for incoming connections on the specified port
+.TP
+.B scan \fIHOST PORTS\fR
+Scan ports on the target host (e.g., "80,443" or "1-1000")
+.TP
+.B broker \fIPORT\fR
+Start a connection broker on the specified port
+.TP
+.B chat \fIPORT\fR
+Start a chat server on the specified port
+.TP
+.B tunnel \fIOPTIONS\fR
+Create SSH tunnels (local, remote, or dynamic)
+.TP
+.B dns-tunnel \fIOPTIONS\fR
+Create DNS tunnels for covert communication
+.TP
+.B multi-listen \fIOPTIONS\fR
+Listen on multiple ports simultaneously
+.TP
+.B proxy \fIOPTIONS\fR
+Start an HTTP reverse proxy with load balancing
+.TP
+.B convert \fIOPTIONS\fR
+Convert between protocols (TCP/UDP, HTTP/WebSocket)
+.TP
+.B transfer \fIOPTIONS\fR
+Transfer files between systems
+.TP
+.B script \fISCRIPT\fR
+Execute a Lua script
+.SH GLOBAL OPTIONS
+.TP
+.B \-4, \-\-ipv4
+Use IPv4 only
+.TP
+.B \-6, \-\-ipv6
+Use IPv6 only
+.TP
+.B \-u, \-\-udp
+Use UDP instead of TCP
+.TP
+.B \-\-sctp
+Use SCTP protocol
+.TP
+.B \-l, \-\-listen
+Listen mode (bind and listen for incoming connections)
+.TP
+.B \-k, \-\-keep\-open
+Accept multiple connections in listen mode
+.TP
+.B \-v, \-\-verbose
+Enable verbose output
+.TP
+.B \-\-debug
+Enable debug mode with detailed logging
+.TP
+.B \-q, \-\-quiet
+Suppress output
+.TP
+.B \-\-ssl
+Use SSL/TLS for connections
+.TP
+.B \-\-ssl\-cert \fIFILE\fR
+Specify SSL certificate file (PEM format)
+.TP
+.B \-\-ssl\-key \fIFILE\fR
+Specify SSL private key file (PEM format)
+.TP
+.B \-\-ssl\-verify
+Verify SSL certificates
+.TP
+.B \-w, \-\-wait \fIDURATION\fR
+Connection timeout (e.g., 30s, 1m)
+.TP
+.B \-\-proxy \fIURL\fR
+Use proxy (socks5://host:port or http://host:port)
+.TP
+.B \-\-rate\-limit \fIRATE\fR
+Rate limit for data transfer (e.g., 1MB/s)
+.TP
+.B \-\-allow \fIIP\fR
+Allow connections from specific IP addresses
+.TP
+.B \-\-deny \fIIP\fR
+Deny connections from specific IP addresses
+.TP
+.B \-\-config \fIFILE\fR
+Load configuration from file (YAML or JSON)
+.TP
+.B \-\-theme \fIFILE\fR
+Load color theme from file
+.TP
+.B \-\-json
+Output logs in JSON format
+.TP
+.B \-\-no\-color
+Disable colored output
+.SH CONNECT OPTIONS
+.TP
+.B \-s, \-\-shell \fISHELL\fR
+Shell to use for command execution
+.TP
+.B \-t, \-\-timeout \fIDURATION\fR
+Connection timeout
+.TP
+.B \-r, \-\-retry \fICOUNT\fR
+Number of retry attempts
+.TP
+.B \-\-keep\-alive
+Enable TCP keep-alive
+.SH LISTEN OPTIONS
+.TP
+.B \-e, \-\-exec \fICOMMAND\fR
+Execute command for each connection
+.TP
+.B \-i, \-\-interactive
+Interactive mode with PTY support
+.TP
+.B \-b, \-\-bind \fIADDRESS\fR
+Bind to specific address (default: 0.0.0.0)
+.TP
+.B \-m, \-\-max\-conn \fICOUNT\fR
+Maximum concurrent connections
+.SH SCAN OPTIONS
+.TP
+.B \-t, \-\-timeout \fIDURATION\fR
+Port scan timeout per port
+.TP
+.B \-c, \-\-concurrent \fICOUNT\fR
+Number of concurrent scans
+.TP
+.B \-o, \-\-output \fIFORMAT\fR
+Output format (text, json, xml)
+.SH PROXY OPTIONS
+.TP
+.B \-\-listen \fIADDRESS\fR
+Listen address for proxy
+.TP
+.B \-\-target \fIURL\fR
+Target backend URL
+.TP
+.B \-\-backends \fIURLs\fR
+Comma-separated list of backend URLs
+.TP
+.B \-\-lb\-algorithm \fIALGO\fR
+Load balancing algorithm (round-robin, least-connections, random)
+.TP
+.B \-\-health\-check \fIPATH\fR
+Health check endpoint path
+.SH TUNNEL OPTIONS
+.TP
+.B \-\-ssh \fIUSER@HOST\fR
+SSH server for tunneling
+.TP
+.B \-\-local \fIPORT\fR
+Local port for forwarding
+.TP
+.B \-\-remote \fIHOST:PORT\fR
+Remote address to forward to
+.TP
+.B \-\-dynamic \fIPORT\fR
+Dynamic SOCKS proxy port
+.TP
+.B \-\-reverse
+Enable reverse port forwarding
+.TP
+.B \-\-key \fIFILE\fR
+SSH private key file
+.SH EXAMPLES
+.TP
+Connect to a server:
+.B gocat connect example.com 80
+.TP
+Listen on port 8080:
+.B gocat listen 8080
+.TP
+Listen with command execution:
+.B gocat listen \-e /bin/bash 8080
+.TP
+Scan ports:
+.B gocat scan example.com 1-1000
+.TP
+SSL connection:
+.B gocat connect \-\-ssl example.com 443
+.TP
+File transfer (send):
+.B gocat connect example.com 8080 < file.txt
+.TP
+File transfer (receive):
+.B gocat listen 8080 > received.txt
+.TP
+HTTP reverse proxy:
+.B gocat proxy \-\-listen :8080 \-\-target http://backend:80
+.TP
+SSH local port forwarding:
+.B gocat tunnel \-\-ssh user@server \-\-local 8080 \-\-remote localhost:80
+.TP
+Protocol conversion (HTTP to WebSocket):
+.B gocat convert \-\-from http:8080 \-\-to ws://backend:9000/ws
+.TP
+Execute Lua script:
+.B gocat script examples/http_client.lua
+.TP
+Multi-port listener:
+.B gocat multi\-listen \-\-ports 8080,8081,8082
+.TP
+With rate limiting:
+.B gocat connect \-\-rate\-limit 1MB/s example.com 80
+.TP
+With access control:
+.B gocat listen \-\-allow 192.168.1.0/24 \-\-deny 192.168.1.100 8080
+.SH CONFIGURATION FILE
+GoCat can load configuration from YAML or JSON files:
+.PP
+.nf
+.RS
+# ~/.gocat.yml
+defaults:
+  timeout: 30s
+  retry: 3
+  keep_alive: true
+
+logging:
+  level: info
+  format: json
+
+security:
+  verify_cert: true
+  rate_limit: 100
+.RE
+.fi
+.SH ENVIRONMENT VARIABLES
+.TP
+.B GOCAT_CONFIG
+Path to configuration file
+.TP
+.B GOCAT_THEME
+Path to color theme file
+.TP
+.B GOCAT_LOG_LEVEL
+Log level (debug, info, warn, error)
+.TP
+.B GOCAT_ALLOWED_ORIGINS
+Comma-separated list of allowed WebSocket origins
+.SH FILES
+.TP
+.I ~/.gocat.yml
+User configuration file
+.TP
+.I ~/.gocat-theme.yml
+User color theme file
+.TP
+.I /etc/gocat/config.yml
+System-wide configuration file
+.SH EXIT STATUS
+.TP
+.B 0
+Success
+.TP
+.B 1
+General error
+.TP
+.B 2
+Connection error
+.TP
+.B 3
+Authentication error
+.TP
+.B 4
+Permission denied
+.SH SECURITY
+GoCat implements several security features:
+.IP \(bu 2
+Input validation and sanitization
+.IP \(bu 2
+Rate limiting to prevent DoS attacks
+.IP \(bu 2
+Access control lists (allow/deny)
+.IP \(bu 2
+SSL/TLS with certificate verification
+.IP \(bu 2
+Audit logging for security events
+.IP \(bu 2
+Authentication and authorization
+.IP \(bu 2
+Encryption for sensitive data
+.SH BUGS
+Report bugs at: https://github.com/ibrahmsql/gocat/issues
+.SH AUTHOR
+Written by Ibrahim SQL and contributors.
+.SH COPYRIGHT
+Copyright \(co 2025 GoCat Project.
+.br
+License: MIT License
+.SH SEE ALSO
+.BR nc (1),
+.BR ncat (1),
+.BR socat (1),
+.BR netstat (8),
+.BR ss (8)
+.PP
+Full documentation: https://github.com/ibrahmsql/gocat

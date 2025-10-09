@@ -1,11 +1,13 @@
 package logging
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -610,14 +612,40 @@ func (lr *LogRotator) rotate() error {
 
 // compressFile compresses a log file (simplified implementation)
 func (lr *LogRotator) compressFile(filename string) {
-	// This is a placeholder - in a real implementation,
-	// you would use gzip or another compression library
+	// Compress the rotated file using gzip
+	if lr.compress {
+		go func(filename string) {
+			if err := compressFile(filename); err != nil {
+				// Log compression error to stderr since we can't use the logger
+				fmt.Fprintf(os.Stderr, "Failed to compress log file %s: %v\n", filename, err)
+			}
+		}(filename)
+	}
 }
 
 // cleanup removes old log files based on age
 func (lr *LogRotator) cleanup() {
-	// This is a placeholder - in a real implementation,
-	// you would check file ages and remove old files
+	// Remove old log files based on retention policy
+	if lr.maxAge > 0 {
+		cutoff := time.Now().Add(-time.Duration(lr.maxAge) * 24 * time.Hour)
+
+		dir := filepath.Dir(lr.filename)
+		files, err := filepath.Glob(filepath.Join(dir, lr.filename+".*"))
+		if err != nil {
+			return
+		}
+
+		for _, file := range files {
+			info, err := os.Stat(file)
+			if err != nil {
+				continue
+			}
+
+			if info.ModTime().Before(cutoff) {
+				os.Remove(file)
+			}
+		}
+	}
 }
 
 // Close closes the log rotator
@@ -710,4 +738,34 @@ func WithFields(fields ...Field) Logger {
 // WithError returns a logger with an error field using the global logger
 func WithError(err error) Logger {
 	return globalLogger.WithError(err)
+}
+
+// compressFile compresses a file using gzip
+func compressFile(filename string) error {
+	// Open source file
+	src, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	// Create compressed file
+	dst, err := os.Create(filename + ".gz")
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	// Create gzip writer
+	gzWriter := gzip.NewWriter(dst)
+	defer gzWriter.Close()
+
+	// Copy data
+	_, err = io.Copy(gzWriter, src)
+	if err != nil {
+		return err
+	}
+
+	// Remove original file after successful compression
+	return os.Remove(filename)
 }
