@@ -364,36 +364,6 @@ gocat tunnel --ssh user@server --dynamic 1080
 gocat tunnel --ssh user@server --key ~/.ssh/id_rsa --local 8080 --remote 80
 ```
 
-#### 🤖 MCP Server (AI Integration) (NEW!)
-```bash
-# Automatic setup (detects Claude, Cursor, Zed, etc.)
-gocat mcp setup
-
-# Interactive menu - choose which AI client to configure
-# Supports: Claude Desktop, Cursor, Continue, Zed, Windsurf
-
-# List detected AI clients and their status
-gocat mcp setup --list
-
-# Setup for specific client
-gocat mcp setup --client claude
-
-# Setup for all detected clients
-gocat mcp setup --client all
-
-# Start MCP server (after setup)
-gocat mcp
-
-# Now use in your AI assistant:
-# "Can you scan example.com ports 1-1000?"
-# "Set up a load balancer for 3 backends"
-# "Check if port 443 is open"
-# "Create a WebSocket echo server"
-
-# Test manually
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | gocat mcp
-```
-
 #### 🌐 DNS Tunneling
 ```bash
 # Start DNS tunnel server
