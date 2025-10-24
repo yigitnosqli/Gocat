@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/ibrahmsql/gocat/internal/logger"
@@ -325,13 +326,131 @@ func tcpToTCP(listenAddr, targetAddr string) {
 }
 
 // udpToUDP starts a UDP proxy that listens on listenAddr and forwards packets to targetAddr.
-// Currently this function is a placeholder and does not perform the proxying; it logs a warning and returns.
+// It creates a UDP listener and forwards all received packets to the target UDP address.
 func udpToUDP(listenAddr, targetAddr string) {
 	logger.Info("UDP->UDP proxy listening on %s, forwarding to %s", listenAddr, targetAddr)
 
-	// Similar to udpToTCP but with UDP target
-	// Implementation similar to above
-	logger.Warn("UDP->UDP conversion not yet implemented")
+	// Resolve target address
+	targetUDPAddr, err := net.ResolveUDPAddr("udp", targetAddr)
+	if err != nil {
+		logger.Fatal("Failed to resolve target UDP address %s: %v", targetAddr, err)
+	}
+
+	// Listen on UDP
+	listenUDPAddr, err := net.ResolveUDPAddr("udp", listenAddr)
+	if err != nil {
+		logger.Fatal("Failed to resolve listen UDP address %s: %v", listenAddr, err)
+	}
+
+	udpConn, err := net.ListenUDP("udp", listenUDPAddr)
+	if err != nil {
+		logger.Fatal("Failed to listen on UDP %s: %v", listenAddr, err)
+	}
+	defer udpConn.Close()
+
+	logger.Info("UDP->UDP converter started")
+
+	// Map to track client connections
+	type clientInfo struct {
+		addr       *net.UDPAddr
+		targetConn *net.UDPConn
+		lastSeen   time.Time
+	}
+	
+	clients := make(map[string]*clientInfo)
+	var clientsMu sync.Mutex
+
+	// Cleanup goroutine for stale connections
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		
+		for range ticker.C {
+			clientsMu.Lock()
+			now := time.Now()
+			for key, info := range clients {
+				if now.Sub(info.lastSeen) > 2*time.Minute {
+					logger.Debug("Cleaning up stale UDP client: %s", key)
+					info.targetConn.Close()
+					delete(clients, key)
+				}
+			}
+			clientsMu.Unlock()
+		}
+	}()
+
+	buffer := make([]byte, 65535)
+	for {
+		n, clientAddr, err := udpConn.ReadFromUDP(buffer)
+		if err != nil {
+			logger.Error("UDP read error: %v", err)
+			continue
+		}
+
+		clientKey := clientAddr.String()
+
+		clientsMu.Lock()
+		client, exists := clients[clientKey]
+		if !exists {
+			// Create new connection to target for this client
+			targetConn, err := net.DialUDP("udp", nil, targetUDPAddr)
+			if err != nil {
+				logger.Error("Failed to dial target UDP: %v", err)
+				clientsMu.Unlock()
+				continue
+			}
+
+			client = &clientInfo{
+				addr:       clientAddr,
+				targetConn: targetConn,
+				lastSeen:   time.Now(),
+			}
+			clients[clientKey] = client
+
+			// Start goroutine to read responses from target
+			go func(c *clientInfo) {
+				respBuffer := make([]byte, 65535)
+				for {
+					n, err := c.targetConn.Read(respBuffer)
+					if err != nil {
+						if !isClosedError(err) {
+							logger.Error("Target UDP read error: %v", err)
+						}
+						return
+					}
+
+					// Send response back to original client
+					if _, err := udpConn.WriteToUDP(respBuffer[:n], c.addr); err != nil {
+						logger.Error("Failed to write response to client: %v", err)
+						return
+					}
+
+					clientsMu.Lock()
+					c.lastSeen = time.Now()
+					clientsMu.Unlock()
+				}
+			}(client)
+
+			logger.Debug("New UDP client: %s", clientKey)
+		} else {
+			client.lastSeen = time.Now()
+		}
+		clientsMu.Unlock()
+
+		// Forward packet to target
+		if _, err := client.targetConn.Write(buffer[:n]); err != nil {
+			logger.Error("Failed to forward UDP packet: %v", err)
+			continue
+		}
+
+		logger.Debug("Forwarded %d bytes from %s to %s", n, clientAddr, targetAddr)
+	}
+}
+
+// isClosedError checks if the error is due to a closed connection
+func isClosedError(err error) bool {
+	return err != nil && (err.Error() == "use of closed network connection" || 
+		err == io.EOF)
 }
 
 // tcpToWebSocket starts a TCP listener on tcpAddr and forwards each accepted TCP connection to a backend WebSocket at wsURL.

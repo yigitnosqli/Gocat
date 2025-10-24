@@ -334,7 +334,7 @@ func (ts *TunnelServer) handleTunnel(conn net.Conn) {
 	}()
 
 	// Keep connection alive and handle tunnel commands
-	buffer := make([]byte, 1024)
+	buffer := make([]byte, 32768)
 	for {
 		n, err := conn.Read(buffer)
 		if err != nil {
@@ -344,10 +344,56 @@ func (ts *TunnelServer) handleTunnel(conn net.Conn) {
 			break
 		}
 
-		// Echo back for now (simple tunnel)
-		if _, err := conn.Write(buffer[:n]); err != nil {
-			logger.Error("Tunnel write error: %v", err)
-			break
+		// Parse tunnel protocol
+		// Format: [target_id:4bytes][data_length:4bytes][data]
+		if n < 8 {
+			logger.Warn("Invalid tunnel packet size: %d", n)
+			continue
+		}
+
+		// Extract target client ID (first 4 bytes as string index)
+		targetPrefix := string(buffer[0:4])
+		
+		// Check if this is a broadcast message (target = "BROD")
+		if targetPrefix == "BROD" {
+			// Broadcast to all clients except sender
+			ts.mutex.RLock()
+			for otherID, otherConn := range ts.clients {
+				if otherID != clientID {
+					if _, err := otherConn.Write(buffer[8:n]); err != nil {
+						logger.Error("Broadcast write error to %s: %v", otherID, err)
+					}
+				}
+			}
+			ts.mutex.RUnlock()
+			logger.Debug("Broadcasted %d bytes from %s", n-8, clientID)
+			continue
+		}
+
+		// Direct message to specific client
+		ts.mutex.RLock()
+		targetFound := false
+		for targetID, targetConn := range ts.clients {
+			if targetID[:4] == targetPrefix {
+				if _, err := targetConn.Write(buffer[8:n]); err != nil {
+					logger.Error("Tunnel write error to %s: %v", targetID, err)
+				} else {
+					logger.Debug("Tunneled %d bytes from %s to %s", n-8, clientID, targetID)
+					targetFound = true
+				}
+				break
+			}
+		}
+		ts.mutex.RUnlock()
+
+		// Send acknowledgment or error back to sender
+		if targetFound {
+			ack := []byte("ACK\n")
+			conn.Write(ack)
+		} else {
+			err := []byte("ERR: Target not found\n")
+			conn.Write(err)
+			logger.Warn("Target client not found: %s", targetPrefix)
 		}
 	}
 }

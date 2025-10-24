@@ -47,6 +47,24 @@ Transfer files between systems
 .TP
 .B script \fISCRIPT\fR
 Execute a Lua script
+.TP
+.B websocket, ws \fIOPTIONS\fR
+WebSocket server and client operations
+.TP
+.B unix, uds \fIOPTIONS\fR
+Unix domain socket operations
+.TP
+.B metrics \fIOPTIONS\fR
+Start Prometheus metrics exporter
+.TP
+.B mcp \fIOPTIONS\fR
+Start Model Context Protocol (MCP) server for AI integration
+.TP
+.B tui \fIMODE\fR
+Start interactive terminal user interface
+.TP
+.B version, v
+Show version information
 .SH GLOBAL OPTIONS
 .TP
 .B \-4, \-\-ipv4
@@ -185,6 +203,61 @@ Enable reverse port forwarding
 .TP
 .B \-\-key \fIFILE\fR
 SSH private key file
+.SH WEBSOCKET OPTIONS
+.TP
+.B \-\-port \fIPORT\fR
+Port for WebSocket server
+.TP
+.B \-\-path \fIPATH\fR
+WebSocket endpoint path (default: /)
+.TP
+.B \-\-compress
+Enable WebSocket compression
+.TP
+.B \-\-origin \fIORIGIN\fR
+Origin header for WebSocket handshake
+.SH UNIX SOCKET OPTIONS
+.TP
+.B \-\-type \fITYPE\fR
+Socket type: stream or datagram (default: stream)
+.TP
+.B \-\-permissions \fIMODE\fR
+Octal permissions for socket file (default: 0660)
+.TP
+.B \-\-remove
+Remove existing socket file before creating
+.SH MCP OPTIONS
+.TP
+.B setup
+Interactive setup to configure AI clients (Claude, Cursor, etc.)
+.TP
+.B \-\-list
+List detected AI clients and configuration status
+.TP
+.B \-\-client \fINAME\fR
+Configure specific client (claude, cursor, continue, zed, windsurf, all)
+.TP
+.B \-\-remove
+Remove GoCat from client configuration
+.TP
+.B \-\-name \fINAME\fR
+MCP server name (default: gocat)
+.TP
+.B \-\-version \fIVERSION\fR
+MCP server version
+.SH METRICS OPTIONS
+.TP
+.B \-\-port \fIPORT\fR
+Port to expose metrics on (default: 9090)
+.TP
+.B \-\-namespace \fINAMESPACE\fR
+Prometheus metrics namespace (default: gocat)
+.TP
+.B \-\-subsystem \fISUBSYSTEM\fR
+Prometheus metrics subsystem (default: network)
+.TP
+.B \-\-interval \fIDURATION\fR
+System metrics collection interval (default: 15s)
 .SH EXAMPLES
 .TP
 Connect to a server:
@@ -228,6 +301,39 @@ With rate limiting:
 .TP
 With access control:
 .B gocat listen \-\-allow 192.168.1.0/24 \-\-deny 192.168.1.100 8080
+.TP
+WebSocket server:
+.B gocat ws server \-\-port 8080 \-\-compress
+.TP
+WebSocket client:
+.B gocat ws connect ws://example.com:8080
+.TP
+Unix socket server:
+.B gocat unix listen /tmp/gocat.sock
+.TP
+Unix socket client:
+.B gocat unix connect /tmp/gocat.sock
+.TP
+Start metrics exporter:
+.B gocat metrics \-\-port 9090
+.TP
+MCP interactive setup:
+.B gocat mcp setup
+.TP
+MCP setup for Claude:
+.B gocat mcp setup \-\-client claude
+.TP
+MCP setup for all clients:
+.B gocat mcp setup \-\-client all
+.TP
+Start MCP server:
+.B gocat mcp
+.TP
+TUI mode:
+.B gocat tui
+.TP
+TUI in scan mode:
+.B gocat tui scan
 .SH CONFIGURATION FILE
 GoCat can load configuration from YAML or JSON files:
 .PP

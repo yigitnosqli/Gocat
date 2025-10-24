@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -56,9 +57,13 @@ type Model struct {
 	height int
 
 	// Readline editor for advanced input handling
-	readlineEditor *readline.Editor
-	readlineMode   bool
-	historyEnabled bool
+	readlineEditor  *readline.Editor
+	readlineMode    bool
+	historyEnabled  bool
+	history         []string
+	historyIndex    int
+	completions     []string
+	completionIndex int
 
 	// Mode-specific states (using existing structs)
 	connectState *ConnectState
@@ -93,18 +98,22 @@ func NewModel() Model {
 	readlineEditor.SetCompletions(completions)
 
 	return Model{
-		mode:           ModeMenu,
-		input:          "",
-		errorMsg:       "",
-		successMsg:     "",
-		connected:      false,
-		connectionInfo: "",
-		quitting:       false,
-		width:          80,
-		height:         24,
-		readlineEditor: readlineEditor,
-		readlineMode:   false,
-		historyEnabled: true,
+		mode:            ModeMenu,
+		input:           "",
+		errorMsg:        "",
+		successMsg:      "",
+		connected:       false,
+		connectionInfo:  "",
+		quitting:        false,
+		width:           80,
+		height:          24,
+		readlineEditor:  readlineEditor,
+		readlineMode:    false,
+		historyEnabled:  true,
+		history:         make([]string, 0),
+		historyIndex:    -1,
+		completions:     completions,
+		completionIndex: 0,
 		connectState: &ConnectState{
 			host:          "",
 			port:          "80",
@@ -171,6 +180,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.readlineMode = false
 				m.errorMsg = ""
 				m.successMsg = ""
+				m.input = ""
 				return m, nil
 			case "enter":
 				// Process readline input
@@ -182,9 +192,67 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.readlineMode = false
 				return m, nil
+			case "ctrl+u":
+				// Clear line
+				m.input = ""
+				return m, nil
+			case "ctrl+w":
+				// Delete word backwards
+				if len(m.input) > 0 {
+					// Find last space
+					trimmed := strings.TrimRight(m.input, " ")
+					lastSpace := strings.LastIndex(trimmed, " ")
+					if lastSpace >= 0 {
+						m.input = m.input[:lastSpace+1]
+					} else {
+						m.input = ""
+					}
+				}
+				return m, nil
+			case "ctrl+a":
+				// Move to beginning (not implemented in basic model)
+				return m, nil
+			case "ctrl+e":
+				// Move to end (not implemented in basic model)
+				return m, nil
+			case "up":
+				// Previous history
+				if m.historyIndex < len(m.history)-1 {
+					m.historyIndex++
+					m.input = m.history[len(m.history)-1-m.historyIndex]
+				}
+				return m, nil
+			case "down":
+				// Next history
+				if m.historyIndex > 0 {
+					m.historyIndex--
+					m.input = m.history[len(m.history)-1-m.historyIndex]
+				} else if m.historyIndex == 0 {
+					m.historyIndex = -1
+					m.input = ""
+				}
+				return m, nil
+			case "backspace":
+				// Delete character
+				if len(m.input) > 0 {
+					m.input = m.input[:len(m.input)-1]
+				}
+				return m, nil
+			case "tab":
+				// Tab completion (basic)
+				if len(m.completions) > 0 {
+					m.completionIndex = (m.completionIndex + 1) % len(m.completions)
+					m.input = m.completions[m.completionIndex]
+				}
+				return m, nil
 			default:
-				// For now, just disable readline mode on other keys
-				m.readlineMode = false
+				// Handle regular character input
+				if len(msg.String()) == 1 {
+					m.input += msg.String()
+					m.historyIndex = -1 // Reset history navigation
+					return m, nil
+				}
+				// For other special keys, stay in readline mode
 				return m, nil
 			}
 		}

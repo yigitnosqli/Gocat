@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	scanTimeout   time.Duration
+	scanTimeout   = 3 * time.Second // Default timeout
 	concurrency   int
 	portRange     string
 	verboseOutput bool
@@ -41,6 +41,23 @@ configurable concurrency and timeout settings.`,
 
 		if portRange != "" {
 			ports = portRange
+		}
+
+		// Read global flags
+		if globalUDP, _ := cmd.Root().PersistentFlags().GetBool("udp"); globalUDP {
+			useUDPScan = true
+		}
+		if globalIPv4, _ := cmd.Root().PersistentFlags().GetBool("ipv4"); globalIPv4 {
+			forceIPv4Scan = true
+		}
+		if globalIPv6, _ := cmd.Root().PersistentFlags().GetBool("ipv6"); globalIPv6 {
+			forceIPv6Scan = true
+		}
+		if globalScanTimeout, _ := cmd.Root().PersistentFlags().GetDuration("scan-timeout"); globalScanTimeout > 0 {
+			scanTimeout = globalScanTimeout
+		}
+		if globalPortRange, _ := cmd.Root().PersistentFlags().GetString("port-range"); globalPortRange != "" && portRange == "" {
+			ports = globalPortRange
 		}
 
 		logger.Info("Starting port scan on %s for ports %s", host, ports)
@@ -158,16 +175,14 @@ func printResult(host string, port int, isOpen bool) {
 func init() {
 	rootCmd.AddCommand(scanCmd)
 
-	scanCmd.Flags().DurationVar(&scanTimeout, "scan-timeout", 3*time.Second, "Connection timeout for each port")
+	// Scan-specific flags
 	scanCmd.Flags().IntVar(&concurrency, "concurrency", 100, "Number of concurrent scans")
 	scanCmd.Flags().StringVar(&portRange, "ports", "", "Port range to scan (e.g., 1-1000, 22,80,443)")
-	scanCmd.Flags().BoolVar(&verboseOutput, "scan-verbose", false, "Show closed ports as well")
+	scanCmd.Flags().BoolVar(&verboseOutput, "verbose-scan", false, "Show closed ports as well")
 	scanCmd.Flags().BoolVar(&onlyOpen, "open", true, "Show only open ports")
-	scanCmd.Flags().BoolVar(&useUDPScan, "scan-udp", false, "Use UDP instead of TCP for scanning")
-	scanCmd.Flags().BoolVar(&forceIPv6Scan, "scan-ipv6", false, "Force IPv6 for scanning")
-	scanCmd.Flags().BoolVar(&forceIPv4Scan, "scan-ipv4", false, "Force IPv4 for scanning")
 
-	// Mark conflicting flags
-	scanCmd.MarkFlagsMutuallyExclusive("scan-ipv4", "scan-ipv6")
-	scanCmd.MarkFlagsMutuallyExclusive("scan-verbose", "open")
+	// Note: Global flags are used for common options:
+	// --udp (global) instead of --scan-udp
+	// --ipv4, --ipv6 (global) instead of --scan-ipv4/ipv6
+	// --scan-timeout (global, hidden) for port scan timeout
 }

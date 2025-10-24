@@ -80,8 +80,8 @@ CMD ["--help"]
 EXPOSE 8080 9999
 
 # 🏥 Health check
-HEALTHCHEK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["/usr/local/bin/gocat", "--version"] || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["/usr/local/bin/gocat", "version"] || exit 1
 
 # Alternative multi-arch build stage
 FROM golang:1.21-alpine AS builder-multiarch

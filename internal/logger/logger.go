@@ -471,3 +471,8 @@ func SetTheme(theme *ColorTheme) {
 func GetCurrentTheme() *ColorTheme {
 	return currentTheme
 }
+
+// SetOutput sets the output destination for the default logger
+func SetOutput(w io.Writer) {
+	defaultLogger.SetOutput(w)
+}

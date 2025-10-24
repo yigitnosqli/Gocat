@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"net"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -515,8 +516,9 @@ func (p *ConnectionPoolImpl) performMaintenance() {
 
 		// Ensure minimum connections if configured
 		if len(validConns) < p.config.MinSize && p.config.MinSize > 0 {
-			// This would require creating new connections in background
-			// For now, we'll just log this condition
+			// Create new connections in background to maintain minimum pool size
+			needed := p.config.MinSize - len(validConns)
+			go p.createBackgroundConnections(address, needed)
 		}
 	}
 
@@ -528,5 +530,74 @@ func (p *ConnectionPoolImpl) performMaintenance() {
 				"count": string(rune(expiredCount)),
 			})
 		}
+	}
+}
+
+// createBackgroundConnections creates new connections in the background to maintain minimum pool size
+func (p *ConnectionPoolImpl) createBackgroundConnections(address string, count int) {
+	for i := 0; i < count; i++ {
+		// Check if pool is closed
+		p.mu.RLock()
+		if p.closed {
+			p.mu.RUnlock()
+			return
+		}
+		p.mu.RUnlock()
+
+		// Create connection with timeout context
+		ctx, cancel := context.WithTimeout(p.ctx, p.config.ConnectionTimeout)
+		defer cancel()
+		
+		// Use dialer if available, otherwise use net.Dial
+		var conn Connection
+		var err error
+		if p.dialer != nil {
+			conn, err = p.dialer.Dial(ctx, address)
+		} else {
+			var rawConn net.Conn
+			rawConn, err = net.DialTimeout("tcp", address, p.config.ConnectionTimeout)
+			if err == nil {
+				conn = NewConnection(rawConn, "tcp")
+			}
+		}
+
+		if err != nil {
+			// Log error but don't fail - we'll retry on next maintenance cycle
+			if p.metricsCollector != nil {
+				p.metricsCollector.IncrementCounter("background_connection_failed", map[string]string{
+					"address": address,
+					"error":   err.Error(),
+				})
+			}
+			continue
+		}
+
+		// Add to pool
+		pc := &pooledConnection{
+			conn:      conn,
+			createdAt: time.Now(),
+			lastUsed:  time.Now(),
+			useCount:  0,
+			inUse:     false,
+			healthy:   true,
+		}
+
+		p.mu.Lock()
+		if !p.closed {
+			p.connections[address] = append(p.connections[address], pc)
+			atomic.AddInt64(&p.stats.TotalConnections, 1)
+			atomic.AddInt64(&p.stats.IdleConnections, 1)
+			atomic.AddInt64(&p.stats.ConnectionsCreated, 1)
+
+			if p.metricsCollector != nil {
+				p.metricsCollector.IncrementCounter("background_connection_created", map[string]string{
+					"address": address,
+				})
+			}
+		} else {
+			// Pool was closed while we were creating connection
+			conn.Close()
+		}
+		p.mu.Unlock()
 	}
 }

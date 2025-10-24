@@ -22,7 +22,7 @@ import (
 
 var (
 	shellPath        string
-	timeout          time.Duration
+	timeout          = 30 * time.Second // Default timeout
 	retryCount       int
 	connectKeepAlive bool
 	proxyURL         string
@@ -67,20 +67,19 @@ func init() {
 		defaultShell = "cmd.exe"
 	}
 
+	// Connect-specific flags (not covered by global flags)
 	connectCmd.Flags().StringVar(&shellPath, "shell", defaultShell, "Shell to use for command execution")
-	connectCmd.Flags().DurationVar(&timeout, "connect-timeout", 30*time.Second, "Connection timeout")
 	connectCmd.Flags().IntVar(&retryCount, "retry", 3, "Number of retry attempts")
-	connectCmd.Flags().BoolVar(&connectKeepAlive, "connect-keep-alive", false, "Enable keep-alive")
-	connectCmd.Flags().StringVar(&proxyURL, "connect-proxy", "", "Proxy URL (socks5:// or http://)")
-	connectCmd.Flags().BoolVar(&useSSL, "connect-ssl", false, "Use SSL/TLS")
+	connectCmd.Flags().BoolVar(&connectKeepAlive, "keep-alive", false, "Enable TCP keep-alive")
 	connectCmd.Flags().BoolVar(&verifyCert, "verify-cert", false, "Verify SSL certificate")
 	connectCmd.Flags().StringVar(&caCertFile, "ca-cert", "", "CA certificate file")
-	connectCmd.Flags().BoolVar(&useUDP, "connect-udp", false, "Use UDP instead of TCP")
-	connectCmd.Flags().BoolVar(&forceIPv6, "connect-ipv6", false, "Force IPv6")
-	connectCmd.Flags().BoolVar(&forceIPv4, "connect-ipv4", false, "Force IPv4")
 
-	// Mark conflicting flags
-	connectCmd.MarkFlagsMutuallyExclusive("connect-ipv4", "connect-ipv6")
+	// Note: Global flags are used for common options:
+	// --ssl (global) instead of --connect-ssl
+	// --udp (global) instead of --connect-udp  
+	// --wait (global) instead of --connect-timeout
+	// --ipv4, --ipv6 (global) instead of --connect-ipv4/ipv6
+	// --proxy (global) instead of --connect-proxy
 }
 
 // runConnect parses command-line arguments and root persistent flags, applies them to the local configuration, and initiates a connection to the target host and port using the configured shell.

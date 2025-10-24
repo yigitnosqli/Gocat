@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/ibrahmsql/gocat/internal/logger"
 )
@@ -60,10 +62,13 @@ func DefaultSCTPConfig() *SCTPConfig {
 
 // SCTPConn represents an SCTP connection
 type SCTPConn struct {
-	fd     int
-	laddr  *SCTPAddr
-	raddr  *SCTPAddr
-	config *SCTPConfig
+	fd            int
+	laddr         *SCTPAddr
+	raddr         *SCTPAddr
+	config        *SCTPConfig
+	readDeadline  time.Time
+	writeDeadline time.Time
+	mu            sync.RWMutex
 }
 
 // SCTPAddr represents an SCTP address
@@ -180,21 +185,62 @@ func (c *SCTPConn) RemoteAddr() net.Addr {
 
 // SetDeadline sets read and write deadlines
 func (c *SCTPConn) SetDeadline(t time.Time) error {
-	// SCTP doesn't support deadlines in the same way as TCP
-	// This is a placeholder implementation
-	logger.Warn("SCTP SetDeadline not fully implemented")
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	c.readDeadline = t
+	c.writeDeadline = t
+	
+	// Set socket timeout if deadline is in the future
+	if !t.IsZero() {
+		duration := time.Until(t)
+		if duration > 0 {
+			if err := c.setSCTPTimeout(duration); err != nil {
+				logger.Debug("Failed to set SCTP timeout: %v", err)
+			}
+		}
+	}
+	
 	return nil
 }
 
 // SetReadDeadline sets read deadline
 func (c *SCTPConn) SetReadDeadline(t time.Time) error {
-	logger.Warn("SCTP SetReadDeadline not fully implemented")
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	c.readDeadline = t
+	
+	// Set receive timeout on socket
+	if !t.IsZero() {
+		duration := time.Until(t)
+		if duration > 0 {
+			if err := c.setReceiveTimeout(duration); err != nil {
+				logger.Debug("Failed to set SCTP receive timeout: %v", err)
+			}
+		}
+	}
+	
 	return nil
 }
 
 // SetWriteDeadline sets write deadline
 func (c *SCTPConn) SetWriteDeadline(t time.Time) error {
-	logger.Warn("SCTP SetWriteDeadline not fully implemented")
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	c.writeDeadline = t
+	
+	// Set send timeout on socket
+	if !t.IsZero() {
+		duration := time.Until(t)
+		if duration > 0 {
+			if err := c.setSendTimeout(duration); err != nil {
+				logger.Debug("Failed to set SCTP send timeout: %v", err)
+			}
+		}
+	}
+	
 	return nil
 }
 
@@ -542,22 +588,54 @@ func IsSCTPSupported() bool {
 
 // GetSCTPInfo returns SCTP connection information
 func (c *SCTPConn) GetSCTPInfo() (*SCTPInfo, error) {
-	// This would require platform-specific implementation
-	// For now, return basic info
-	return &SCTPInfo{
-		State:      "ESTABLISHED", // Placeholder
+	if c.fd < 0 {
+		return nil, fmt.Errorf("invalid SCTP file descriptor")
+	}
+
+	// Try to get SCTP status using platform-specific syscall
+	info := &SCTPInfo{
 		Streams:    c.config.Streams,
 		LocalAddr:  c.laddr,
 		RemoteAddr: c.raddr,
-	}, nil
+	}
+
+	// Attempt to get SCTP_STATUS information
+	state, err := c.getSCTPState()
+	if err != nil {
+		// If we can't get state, check if connection is still valid
+		if c.isConnected() {
+			info.State = "ESTABLISHED"
+		} else {
+			info.State = "UNKNOWN"
+		}
+		logger.Debug("Could not retrieve SCTP state: %v", err)
+	} else {
+		info.State = state
+	}
+
+	// Get additional statistics if available
+	if stats, err := c.getSCTPStats(); err == nil {
+		info.RTO = stats.RTO
+		info.MTU = stats.MTU
+		info.UnackedData = stats.UnackedData
+		info.InboundStreams = stats.InboundStreams
+		info.OutboundStreams = stats.OutboundStreams
+	}
+
+	return info, nil
 }
 
 // SCTPInfo contains SCTP connection information
 type SCTPInfo struct {
-	State      string
-	Streams    int
-	LocalAddr  *SCTPAddr
-	RemoteAddr *SCTPAddr
+	State            string
+	Streams          int
+	LocalAddr        *SCTPAddr
+	RemoteAddr       *SCTPAddr
+	RTO              time.Duration // Retransmission Timeout
+	MTU              int           // Maximum Transmission Unit
+	UnackedData      int           // Unacknowledged data
+	InboundStreams   int           // Number of inbound streams
+	OutboundStreams  int           // Number of outbound streams
 }
 
 // String returns string representation of SCTP info
@@ -567,4 +645,194 @@ func (info *SCTPInfo) String() string {
 		info.RemoteAddr.String(),
 		info.State,
 		info.Streams)
+}
+
+// sctpStats holds internal SCTP statistics
+type sctpStats struct {
+	RTO              time.Duration
+	MTU              int
+	UnackedData      int
+	InboundStreams   int
+	OutboundStreams  int
+}
+
+// getSCTPState retrieves the current SCTP connection state using platform-specific syscalls
+func (c *SCTPConn) getSCTPState() (string, error) {
+	// SCTP state constants
+	const (
+		SCTP_EMPTY             = 0
+		SCTP_CLOSED            = 1
+		SCTP_COOKIE_WAIT       = 2
+		SCTP_COOKIE_ECHOED     = 3
+		SCTP_ESTABLISHED       = 4
+		SCTP_SHUTDOWN_PENDING  = 5
+		SCTP_SHUTDOWN_SENT     = 6
+		SCTP_SHUTDOWN_RECEIVED = 7
+		SCTP_SHUTDOWN_ACK_SENT = 8
+	)
+
+	// Try to get SCTP status via getsockopt
+	// This is platform-specific and may not work on all systems
+	var status [128]byte
+	n := uint32(len(status))
+	
+	_, _, errno := syscall.Syscall6(
+		syscall.SYS_GETSOCKOPT,
+		uintptr(c.fd),
+		uintptr(SOL_SCTP),
+		uintptr(SCTP_STATUS),
+		uintptr(unsafe.Pointer(&status[0])),
+		uintptr(unsafe.Pointer(&n)),
+		0,
+	)
+	
+	if errno != 0 {
+		return "", fmt.Errorf("getsockopt SCTP_STATUS failed: %v", errno)
+	}
+
+	// Parse state from status (platform-specific)
+	// The actual structure depends on the OS
+	stateValue := int(status[0])
+	
+	stateNames := map[int]string{
+		SCTP_EMPTY:             "EMPTY",
+		SCTP_CLOSED:            "CLOSED",
+		SCTP_COOKIE_WAIT:       "COOKIE_WAIT",
+		SCTP_COOKIE_ECHOED:     "COOKIE_ECHOED",
+		SCTP_ESTABLISHED:       "ESTABLISHED",
+		SCTP_SHUTDOWN_PENDING:  "SHUTDOWN_PENDING",
+		SCTP_SHUTDOWN_SENT:     "SHUTDOWN_SENT",
+		SCTP_SHUTDOWN_RECEIVED: "SHUTDOWN_RECEIVED",
+		SCTP_SHUTDOWN_ACK_SENT: "SHUTDOWN_ACK_SENT",
+	}
+	
+	if name, ok := stateNames[stateValue]; ok {
+		return name, nil
+	}
+	
+	return "UNKNOWN", nil
+}
+
+// isConnected checks if the SCTP connection is still valid
+func (c *SCTPConn) isConnected() bool {
+	if c.fd < 0 {
+		return false
+	}
+	
+	// Try to read socket error to check connection validity
+	var err int
+	errLen := uint32(4)
+	
+	_, _, errno := syscall.Syscall6(
+		syscall.SYS_GETSOCKOPT,
+		uintptr(c.fd),
+		uintptr(syscall.SOL_SOCKET),
+		uintptr(syscall.SO_ERROR),
+		uintptr(unsafe.Pointer(&err)),
+		uintptr(unsafe.Pointer(&errLen)),
+		0,
+	)
+	
+	return errno == 0 && err == 0
+}
+
+// getSCTPStats retrieves detailed SCTP statistics
+func (c *SCTPConn) getSCTPStats() (*sctpStats, error) {
+	stats := &sctpStats{
+		InboundStreams:  c.config.Streams,
+		OutboundStreams: c.config.Streams,
+	}
+	
+	// Try to get RTO info
+	var rtoInfo [12]byte // Platform-specific structure size
+	n := uint32(len(rtoInfo))
+	
+	_, _, errno := syscall.Syscall6(
+		syscall.SYS_GETSOCKOPT,
+		uintptr(c.fd),
+		uintptr(SOL_SCTP),
+		uintptr(SCTP_RTOINFO),
+		uintptr(unsafe.Pointer(&rtoInfo[0])),
+		uintptr(unsafe.Pointer(&n)),
+		0,
+	)
+	
+	if errno == 0 {
+		// Parse RTO (platform-specific, this is simplified)
+		rtoMs := uint32(rtoInfo[0]) | uint32(rtoInfo[1])<<8 | 
+		         uint32(rtoInfo[2])<<16 | uint32(rtoInfo[3])<<24
+		stats.RTO = time.Duration(rtoMs) * time.Millisecond
+	}
+	
+	// Try to get MTU/segment size
+	var maxseg int
+	maxsegLen := uint32(4)
+	
+	_, _, errno = syscall.Syscall6(
+		syscall.SYS_GETSOCKOPT,
+		uintptr(c.fd),
+		uintptr(SOL_SCTP),
+		uintptr(SCTP_MAXSEG),
+		uintptr(unsafe.Pointer(&maxseg)),
+		uintptr(unsafe.Pointer(&maxsegLen)),
+		0,
+	)
+	
+	if errno == 0 && maxseg > 0 {
+		stats.MTU = maxseg
+	} else {
+		stats.MTU = 1500 // Default MTU
+	}
+	
+	return stats, nil
+}
+
+// setSCTPTimeout sets both send and receive timeout
+func (c *SCTPConn) setSCTPTimeout(timeout time.Duration) error {
+	if err := c.setReceiveTimeout(timeout); err != nil {
+		return err
+	}
+	return c.setSendTimeout(timeout)
+}
+
+// setReceiveTimeout sets the socket receive timeout
+func (c *SCTPConn) setReceiveTimeout(timeout time.Duration) error {
+	tv := syscall.NsecToTimeval(timeout.Nanoseconds())
+	
+	_, _, errno := syscall.Syscall6(
+		syscall.SYS_SETSOCKOPT,
+		uintptr(c.fd),
+		uintptr(syscall.SOL_SOCKET),
+		uintptr(syscall.SO_RCVTIMEO),
+		uintptr(unsafe.Pointer(&tv)),
+		unsafe.Sizeof(tv),
+		0,
+	)
+	
+	if errno != 0 {
+		return fmt.Errorf("failed to set receive timeout: %v", errno)
+	}
+	
+	return nil
+}
+
+// setSendTimeout sets the socket send timeout
+func (c *SCTPConn) setSendTimeout(timeout time.Duration) error {
+	tv := syscall.NsecToTimeval(timeout.Nanoseconds())
+	
+	_, _, errno := syscall.Syscall6(
+		syscall.SYS_SETSOCKOPT,
+		uintptr(c.fd),
+		uintptr(syscall.SOL_SOCKET),
+		uintptr(syscall.SO_SNDTIMEO),
+		uintptr(unsafe.Pointer(&tv)),
+		unsafe.Sizeof(tv),
+		0,
+	)
+	
+	if errno != 0 {
+		return fmt.Errorf("failed to set send timeout: %v", errno)
+	}
+	
+	return nil
 }

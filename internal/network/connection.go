@@ -418,14 +418,24 @@ func (ec *ConnectionImpl) SetMetrics(collector MetricsCollector) error {
 }
 
 // EnableCompression enables compression for the connection
+// It wraps the underlying connection with gzip compression for both read and write operations
 func (ec *ConnectionImpl) EnableCompression() error {
 	ec.mu.Lock()
 	defer ec.mu.Unlock()
 
-	// This would be called from a method that has access to the connection instance
-	// For now, this is a placeholder showing how compression would be enabled
+	if ec.compressionEnabled {
+		return errors.ValidationError("VAL017", "Compression is already enabled")
+	}
+
+	// Wrap the connection with compression
+	compressedConn, err := NewCompressedConn(ec.conn)
+	if err != nil {
+		return errors.NetworkError("CONN010", "Failed to enable compression")
+	}
+
+	ec.conn = compressedConn
 	ec.compressionEnabled = true
-	ec.compressionRatio = 0.7 // Placeholder compression ratio
+	ec.compressionRatio = 0.0 // Will be calculated during actual compression
 
 	return nil
 }
@@ -541,6 +551,14 @@ func NewCompressedConnection(conn net.Conn, level int) *CompressedConnection {
 		conn:  conn,
 		level: level,
 	}
+}
+
+// NewCompressedConn creates a new compressed connection with default compression level
+func NewCompressedConn(conn net.Conn) (net.Conn, error) {
+	if conn == nil {
+		return nil, errors.ValidationError("VAL018", "Connection cannot be nil")
+	}
+	return NewCompressedConnection(conn, 6), nil
 }
 
 // Read implements net.Conn.Read with decompression

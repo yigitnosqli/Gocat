@@ -54,6 +54,10 @@
 - ✅ **Comprehensive Logging**: Structured logging with multiple levels
 
 ### 🚀 New Features 
+- **🤖 MCP Server**: Model Context Protocol integration - expose GoCat to AI assistants (Claude, etc.)
+- **WebSocket Support**: Full WebSocket server/client with compression
+- **Unix Domain Sockets**: Local IPC with stream and datagram support
+- **Prometheus Metrics**: Built-in metrics exporter for monitoring
 - **SSH Tunneling**: Local, remote, and dynamic SOCKS proxy tunnels
 - **DNS Tunneling**: Covert channel for firewall bypass
 - **Multi-Port Listener**: Listen on multiple ports simultaneously
@@ -294,6 +298,57 @@ gocat multi-listen --ports 8080,8081 --exec /bin/bash
 gocat multi-listen --range 8000-8010 --stats
 ```
 
+#### 🌐 WebSocket Support (NEW!)
+```bash
+# Start WebSocket server
+gocat ws server --port 8080
+
+# WebSocket echo server
+gocat ws echo --port 8080
+
+# Connect to WebSocket server
+gocat ws connect ws://localhost:8080
+
+# WebSocket with compression
+gocat ws server --port 8080 --compress
+
+# Secure WebSocket (WSS)
+echo "Hello WebSocket!" | gocat ws connect wss://secure.example.com/ws
+```
+
+#### 🔌 Unix Domain Sockets (NEW!)
+```bash
+# Listen on Unix socket
+gocat unix listen /tmp/gocat.sock
+
+# Connect to Unix socket
+gocat unix connect /tmp/gocat.sock
+
+# Unix socket echo server
+gocat unix echo /tmp/echo.sock
+
+# Datagram socket
+gocat unix listen --type datagram /tmp/dgram.sock
+
+# With custom permissions
+gocat unix listen --permissions 0600 /tmp/secure.sock
+```
+
+#### 📊 Prometheus Metrics (NEW!)
+```bash
+# Start metrics exporter
+gocat metrics --port 9090
+
+# With custom namespace
+gocat metrics --namespace myapp --subsystem network
+
+# Access metrics
+curl http://localhost:9090/metrics
+
+# Health check endpoint
+curl http://localhost:9090/health
+```
+
 #### 🚇 SSH Tunneling
 ```bash
 # Local port forwarding (access remote service locally)
@@ -307,6 +362,36 @@ gocat tunnel --ssh user@server --dynamic 1080
 
 # With SSH key authentication
 gocat tunnel --ssh user@server --key ~/.ssh/id_rsa --local 8080 --remote 80
+```
+
+#### 🤖 MCP Server (AI Integration) (NEW!)
+```bash
+# Automatic setup (detects Claude, Cursor, Zed, etc.)
+gocat mcp setup
+
+# Interactive menu - choose which AI client to configure
+# Supports: Claude Desktop, Cursor, Continue, Zed, Windsurf
+
+# List detected AI clients and their status
+gocat mcp setup --list
+
+# Setup for specific client
+gocat mcp setup --client claude
+
+# Setup for all detected clients
+gocat mcp setup --client all
+
+# Start MCP server (after setup)
+gocat mcp
+
+# Now use in your AI assistant:
+# "Can you scan example.com ports 1-1000?"
+# "Set up a load balancer for 3 backends"
+# "Check if port 443 is open"
+# "Create a WebSocket echo server"
+
+# Test manually
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | gocat mcp
 ```
 
 #### 🌐 DNS Tunneling

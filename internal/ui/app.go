@@ -9,6 +9,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"unsafe"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -230,9 +231,34 @@ func getTerminalSize() (width, height int) {
 
 // getTerminalSizeFromFd gets terminal size from file descriptor
 func getTerminalSizeFromFd(fd int) (width, height int, err error) {
-	// This would use syscalls like unix.IoctlGetWinsize on Unix systems
-	// For now, return error to use fallback
-	return 0, 0, fmt.Errorf("terminal size detection not implemented")
+	// Use TIOCGWINSZ ioctl to get window size
+	type winsize struct {
+		Row    uint16
+		Col    uint16
+		Xpixel uint16
+		Ypixel uint16
+	}
+
+	ws := &winsize{}
+	
+	// TIOCGWINSZ constant value
+	const TIOCGWINSZ = 0x5413
+	
+	// Make the ioctl syscall
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(TIOCGWINSZ),
+		uintptr(unsafe.Pointer(ws)))
+	
+	if errno != 0 {
+		return 0, 0, fmt.Errorf("ioctl TIOCGWINSZ failed: %v", errno)
+	}
+	
+	if ws.Col == 0 || ws.Row == 0 {
+		return 0, 0, fmt.Errorf("invalid terminal size: %dx%d", ws.Col, ws.Row)
+	}
+	
+	return int(ws.Col), int(ws.Row), nil
 }
 
 // ShowVersion displays version information in TUI style
