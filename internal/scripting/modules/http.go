@@ -1,8 +1,10 @@
 package modules
 
 import (
+	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -191,7 +193,13 @@ func luaHTTPRequest(L *lua.LState) int {
 // luaHTTPDownload implements http.download(url, filepath)
 func luaHTTPDownload(L *lua.LState) int {
 	url := L.ToString(1)
-	_ = L.ToString(2) // filepath - currently unused
+	filepath := L.ToString(2)
+
+	if filepath == "" {
+		L.Push(lua.LBool(false))
+		L.Push(lua.LString("filepath is required"))
+		return 2
+	}
 
 	client := &http.Client{Timeout: 5 * time.Minute}
 	resp, err := client.Get(url)
@@ -202,9 +210,31 @@ func luaHTTPDownload(L *lua.LState) int {
 	}
 	defer resp.Body.Close()
 
-	// TODO: Implement file writing
+	// Check response status
+	if resp.StatusCode != http.StatusOK {
+		L.Push(lua.LBool(false))
+		L.Push(lua.LString(fmt.Sprintf("HTTP %d: %s", resp.StatusCode, resp.Status)))
+		return 2
+	}
+
+	// Create the file
+	out, err := os.Create(filepath)
+	if err != nil {
+		L.Push(lua.LBool(false))
+		L.Push(lua.LString(fmt.Sprintf("failed to create file: %v", err)))
+		return 2
+	}
+	defer out.Close()
+
+	// Write the response body to file
+	written, err := io.Copy(out, resp.Body)
+	if err != nil {
+		L.Push(lua.LBool(false))
+		L.Push(lua.LString(fmt.Sprintf("failed to write file: %v", err)))
+		return 2
+	}
 
 	L.Push(lua.LBool(true))
-	L.Push(lua.LNil)
+	L.Push(lua.LString(fmt.Sprintf("downloaded %d bytes to %s", written, filepath)))
 	return 2
 }

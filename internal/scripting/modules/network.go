@@ -3,6 +3,8 @@ package modules
 import (
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 	"time"
 
 	lua "github.com/yuin/gopher-lua"
@@ -224,14 +226,57 @@ func luaClose(L *lua.LState) int {
 
 // luaScan implements net.scan(host, ports)
 func luaScan(L *lua.LState) int {
-	_ = L.ToString(1) // host - currently unused
-	_ = L.ToString(2) // ports - currently unused
+	host := L.ToString(1)
+	portsStr := L.ToString(2)
 
-	// Simple port scanning
+	if host == "" {
+		L.Push(L.NewTable())
+		return 1
+	}
+
+	// Parse ports (e.g., "80,443,8080" or "1-100")
+	var portsToScan []int
+	if strings.Contains(portsStr, "-") {
+		// Range format: "1-100"
+		parts := strings.Split(portsStr, "-")
+		if len(parts) == 2 {
+			start, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
+			end, _ := strconv.Atoi(strings.TrimSpace(parts[1]))
+			for i := start; i <= end && i <= 65535; i++ {
+				portsToScan = append(portsToScan, i)
+			}
+		}
+	} else if strings.Contains(portsStr, ",") {
+		// Comma-separated: "80,443,8080"
+		parts := strings.Split(portsStr, ",")
+		for _, p := range parts {
+			port, _ := strconv.Atoi(strings.TrimSpace(p))
+			if port > 0 && port <= 65535 {
+				portsToScan = append(portsToScan, port)
+			}
+		}
+	} else {
+		// Single port
+		port, _ := strconv.Atoi(strings.TrimSpace(portsStr))
+		if port > 0 && port <= 65535 {
+			portsToScan = append(portsToScan, port)
+		}
+	}
+
+	// Scan ports
 	openPorts := []int{}
+	timeout := 2 * time.Second
 
-	// TODO: Implement actual port scanning logic
+	for _, port := range portsToScan {
+		address := net.JoinHostPort(host, strconv.Itoa(port))
+		conn, err := net.DialTimeout("tcp", address, timeout)
+		if err == nil {
+			openPorts = append(openPorts, port)
+			conn.Close()
+		}
+	}
 
+	// Return results as Lua table
 	table := L.NewTable()
 	for i, port := range openPorts {
 		L.RawSet(table, lua.LNumber(i+1), lua.LNumber(port))
