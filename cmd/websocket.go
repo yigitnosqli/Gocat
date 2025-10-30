@@ -18,7 +18,6 @@ import (
 var (
 	wsServerPort     string
 	wsServerPath     string
-	wsClientURL      string
 	wsReadBufferSize int
 	wsWriteBufferSize int
 	wsEnableCompression bool

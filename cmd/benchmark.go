@@ -65,14 +65,14 @@ WARNING: Only use against systems you own or have permission to test.`,
 func init() {
 	rootCmd.AddCommand(benchmarkCmd)
 
-	benchmarkCmd.Flags().StringVarP(&benchTarget, "target", "t", "", "Target host to benchmark")
-	benchmarkCmd.Flags().IntVarP(&benchPort, "port", "p", 80, "Target port")
-	benchmarkCmd.Flags().IntVarP(&benchConnections, "connections", "c", 10, "Number of concurrent connections")
-	benchmarkCmd.Flags().DurationVarP(&benchDuration, "duration", "d", 10*time.Second, "Test duration")
+	benchmarkCmd.Flags().StringVar(&benchTarget, "target", "", "Target host to benchmark")
+	benchmarkCmd.Flags().IntVar(&benchPort, "port", 80, "Target port")
+	benchmarkCmd.Flags().IntVar(&benchConnections, "connections", 10, "Number of concurrent connections")
+	benchmarkCmd.Flags().DurationVar(&benchDuration, "duration", 10*time.Second, "Test duration")
 	benchmarkCmd.Flags().IntVar(&benchPacketSize, "packet-size", 64, "Size of test packets in bytes")
 	benchmarkCmd.Flags().StringVar(&benchProtocol, "protocol", "tcp", "Protocol to use (tcp/udp)")
 	benchmarkCmd.Flags().IntVar(&benchRate, "rate", 0, "Maximum requests per second (0=unlimited)")
-	benchmarkCmd.Flags().BoolVarP(&benchVerbose, "verbose", "v", false, "Verbose output")
+	benchmarkCmd.Flags().BoolVar(&benchVerbose, "bench-verbose", false, "Verbose output")
 
 	benchmarkCmd.MarkFlagRequired("target")
 }
@@ -123,7 +123,7 @@ func runBenchmark(cmd *cobra.Command, args []string) {
 	printBenchmarkResults()
 }
 
-func benchmarkWorker(ctx context.Context, wg *sync.WaitGroup, workerChan chan struct{}, 
+func benchmarkWorker(ctx context.Context, wg *sync.WaitGroup, _ chan struct{}, 
 	rateLimiter <-chan time.Time, workerID int) {
 	defer wg.Done()
 

@@ -15,7 +15,6 @@ import (
 var (
 	pfLocalPort   int
 	pfRemoteHost  string
-	pfRemotePort  int
 	pfProtocol    string
 	pfMaxConns    int
 	pfIdleTimeout time.Duration
@@ -55,15 +54,15 @@ Supports TCP and UDP port forwarding with connection pooling and statistics.`,
 func init() {
 	rootCmd.AddCommand(portforwardCmd)
 
-	portforwardCmd.Flags().IntVarP(&pfLocalPort, "local", "l", 0, "Local port to listen on")
+	portforwardCmd.Flags().IntVar(&pfLocalPort, "local-port", 0, "Local port to listen on")
 	portforwardCmd.Flags().StringVarP(&pfRemoteHost, "remote", "r", "", "Remote host:port to forward to")
 	portforwardCmd.Flags().StringVar(&pfProtocol, "protocol", "tcp", "Protocol (tcp/udp)")
 	portforwardCmd.Flags().IntVar(&pfMaxConns, "max-conns", 100, "Maximum concurrent connections")
 	portforwardCmd.Flags().DurationVar(&pfIdleTimeout, "idle-timeout", 5*time.Minute, "Idle connection timeout")
 	portforwardCmd.Flags().IntVar(&pfBufferSize, "buffer-size", 32*1024, "Buffer size for data transfer")
-	portforwardCmd.Flags().BoolVarP(&pfVerbose, "verbose", "v", false, "Verbose output")
+	portforwardCmd.Flags().BoolVar(&pfVerbose, "pf-verbose", false, "Verbose output")
 
-	portforwardCmd.MarkFlagRequired("local")
+	portforwardCmd.MarkFlagRequired("local-port")
 	portforwardCmd.MarkFlagRequired("remote")
 }
 

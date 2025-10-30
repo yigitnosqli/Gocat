@@ -238,6 +238,27 @@ func (e *Engine) SetGlobal(name string, value lua.LValue) {
 	}
 }
 
+// ExecuteScript executes a loaded script's main function
+func (e *Engine) ExecuteScript(scriptName string) error {
+	// Try to execute main function if it exists
+	mainFn := e.L.GetGlobal("main")
+	if mainFn == lua.LNil {
+		// If no main function, the script has already been executed during LoadScript
+		return nil
+	}
+	
+	// Execute the main function
+	if err := e.L.CallByParam(lua.P{
+		Fn:      mainFn,
+		NRet:    0,
+		Protect: true,
+	}); err != nil {
+		return fmt.Errorf("error executing script '%s': %w", scriptName, err)
+	}
+	
+	return nil
+}
+
 // Close closes the Lua engine and releases resources
 func (e *Engine) Close() {
 	if e.cancel != nil {

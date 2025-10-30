@@ -2,9 +2,7 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"sync"
@@ -207,10 +205,8 @@ func (dm *DistributedManager) startWorker() error {
 	dm.printWorkerInfo()
 	
 	// Wait for tasks
-	select {
-	case <-dm.ctx.Done():
-		return nil
-	}
+	<-dm.ctx.Done()
+	return nil
 }
 
 // startStandalone starts the node in standalone mode
@@ -226,10 +222,8 @@ func (dm *DistributedManager) startStandalone() error {
 	// Print standalone info
 	dm.printStandaloneInfo()
 	
-	select {
-	case <-dm.ctx.Done():
-		return nil
-	}
+	<-dm.ctx.Done()
+	return nil
 }
 
 // handleWorkerConnection handles WebSocket connections from workers

@@ -31,3 +31,11 @@ go.work.sum
 # .idea/
 # .vscode/
 gocat
+
+# Test files and reports
+test_*.sh
+*_REPORT.md
+*_SUMMARY.md
+*_COMPLETE.md
+verification_*.txt
+*.log

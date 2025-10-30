@@ -15,7 +15,6 @@ import (
 )
 
 var (
-	unixSocketPath    string
 	unixSocketType    string // "stream" or "datagram"
 	unixRemoveExisting bool
 	unixPermissions   uint32

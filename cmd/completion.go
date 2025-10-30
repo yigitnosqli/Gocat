@@ -13,11 +13,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	completionShell string
-	completionOut   string
-)
-
 var completionCmd = &cobra.Command{
 	Use:   "completion",
 	Short: "Generate shell completion scripts",

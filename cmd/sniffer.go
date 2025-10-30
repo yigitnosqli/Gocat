@@ -13,6 +13,7 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+	"github.com/google/gopacket/pcapgo"
 	"github.com/ibrahmsql/gocat/internal/logger"
 	"github.com/spf13/cobra"
 )
@@ -69,13 +70,13 @@ Requires root/administrator privileges for packet capture.`,
 func init() {
 	rootCmd.AddCommand(snifferCmd)
 
-	snifferCmd.Flags().StringVarP(&sniffInterface, "interface", "i", "", "Network interface to sniff")
+	snifferCmd.Flags().StringVar(&sniffInterface, "interface", "", "Network interface to sniff")
 	snifferCmd.Flags().StringVarP(&sniffFilter, "filter", "f", "", "BPF filter expression")
 	snifferCmd.Flags().BoolVar(&sniffPromisc, "promisc", true, "Enable promiscuous mode")
 	snifferCmd.Flags().Int32Var(&sniffSnaplen, "snaplen", 65535, "Snapshot length")
 	snifferCmd.Flags().DurationVar(&sniffTimeout, "timeout", 30*time.Second, "Read timeout")
-	snifferCmd.Flags().IntVarP(&sniffPackets, "count", "c", 0, "Number of packets to capture (0=unlimited)")
-	snifferCmd.Flags().BoolVarP(&sniffVerbose, "verbose", "v", false, "Verbose output")
+	snifferCmd.Flags().IntVar(&sniffPackets, "count", 0, "Number of packets to capture (0=unlimited)")
+	snifferCmd.Flags().BoolVar(&sniffVerbose, "sniff-verbose", false, "Verbose output")
 	snifferCmd.Flags().BoolVar(&sniffDecode, "decode", false, "Decode packet contents")
 	snifferCmd.Flags().StringVarP(&sniffSaveFile, "output", "o", "", "Save packets to pcap file")
 }
@@ -103,13 +104,18 @@ func runSniffer(cmd *cobra.Command, args []string) {
 	}
 
 	// Create pcap writer if saving to file
-	var pcapWriter *os.File
+	var pcapWriter *pcapgo.Writer
 	if sniffSaveFile != "" {
-		pcapWriter, err = os.Create(sniffSaveFile)
+		file, err := os.Create(sniffSaveFile)
 		if err != nil {
 			logger.Fatal("Failed to create pcap file: %v", err)
 		}
-		defer pcapWriter.Close()
+		defer file.Close()
+		
+		pcapWriter = pcapgo.NewWriter(file)
+		if err := pcapWriter.WriteFileHeader(uint32(sniffSnaplen), handle.LinkType()); err != nil {
+			logger.Fatal("Failed to write pcap header: %v", err)
+		}
 		logger.Info("Saving packets to: %s", sniffSaveFile)
 	}
 
@@ -162,7 +168,7 @@ func listInterfaces() {
 	fmt.Println("\nUsage: gocat sniffer -i <interface>")
 }
 
-func processPacket(packet gopacket.Packet, writer *pcap.Writer) {
+func processPacket(packet gopacket.Packet, writer *pcapgo.Writer) {
 	// Update statistics
 	updatePacketStats(func(s *PacketStats) {
 		s.Total++
@@ -195,8 +201,12 @@ func processPacket(packet gopacket.Packet, writer *pcap.Writer) {
 		case layers.LayerTypeARP:
 			updatePacketStats(func(s *PacketStats) { s.ARP++ })
 			if sniffVerbose {
-				arp := netLayer.(*layers.ARP)
-				printARPPacket(arp)
+				// ARP is not a NetworkLayer, handle it separately
+				if arpLayer := packet.Layer(layers.LayerTypeARP); arpLayer != nil {
+					if arp, ok := arpLayer.(*layers.ARP); ok {
+						printARPPacket(arp)
+					}
+				}
 			}
 			return
 		}
