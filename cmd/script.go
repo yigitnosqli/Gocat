@@ -106,8 +106,9 @@ func runScript(cmd *cobra.Command, args []string) {
 
 	logger.Info("Executing script: %s", resolvedPath)
 
-	// Create Lua engine
-	engine := scripting.NewLuaEngine(nil)
+	// Create Lua engine with default config
+	config := scripting.DefaultConfig()
+	engine := scripting.NewEngine(config)
 	if engine == nil {
 		logger.Error("Failed to create Lua engine")
 		os.Exit(1)
@@ -246,7 +247,8 @@ func validateScript(cmd *cobra.Command, args []string) {
 	logger.Info("Validating script: %s", resolvedPath)
 
 	// Create Lua engine for validation
-	engine := scripting.NewLuaEngine(nil)
+	config := scripting.DefaultConfig()
+	engine := scripting.NewEngine(config)
 	if engine == nil {
 		logger.Error("Failed to create Lua engine")
 		os.Exit(1)
@@ -260,14 +262,8 @@ func validateScript(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	
-	// Only compile, don't execute
-	if err := engine.L.DoString("-- Syntax validation only\nreturn true"); err != nil {
-		logger.Error("Engine initialization failed: %v", err)
-		os.Exit(1)
-	}
-	
-	// Try to compile the script
-	if _, err := engine.L.LoadString(string(content)); err != nil {
+	// Try to load the script without executing
+	if err := engine.LoadString(string(content)); err != nil {
 		logger.Error("Script validation failed: %v", err)
 		os.Exit(1)
 	}

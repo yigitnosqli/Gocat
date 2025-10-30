@@ -28,27 +28,30 @@
 
 - 🚀 Fast & Lightweight: Built with Go for optimal performance
 - 🌐 Cross-Platform: Works on Linux, macOS, Windows, and FreeBSD
-- 🔒 Secure: Modern security practices and safe defaults
-- 🎨 User-Friendly: Colorful output and intuitive commands
-- 📦 Easy Installation: Multiple installation methods available
-- 🔧 Extensible: Clean codebase for easy contributions
 ---
 
-## 🎯 Key Features
+## Key Features
 
-### 🌐 Network Protocols
-- ✅ **TCP/UDP Support**: Full support for both protocols with advanced options
-- ✅ **IPv4/IPv6**: Native dual-stack support with proper formatting
-- ✅ **SSL/TLS**: Secure connections with TLS 1.2+ and certificate validation
-- ✅ **Proxy Support**: SOCKS5 and HTTP proxy support
-- ✅ **Keep-Alive**: Configurable connection keep-alive
-- ✅ **HTTP Reverse Proxy**: Load balancing with health checks
-- ✅ **Protocol Converter**: TCP↔UDP, HTTP↔WebSocket conversion
+### Network Protocols
+- **TCP/UDP Support**: Full support for both protocols with advanced options
+- **IPv4/IPv6**: Native dual-stack support with proper formatting
+- **SSL/TLS**: Secure connections with TLS 1.2+ and certificate validation
+- **Proxy Support**: SOCKS5 and HTTP proxy support
+- **Keep-Alive**: Configurable connection keep-alive
+- **HTTP Reverse Proxy**: Load balancing with health checks
+- **Protocol Converter**: TCPUDP, HTTPWebSocket conversion
+- **NekoDNS**: DNS-based reverse shell (NEW!)
+- **Port Forwarding**: Advanced port redirection with statistics (NEW!)
+- **Packet Sniffer**: Network packet capture and analysis (NEW!)
+- **Benchmark Tool**: Network performance testing (NEW!)
 
-### 🔧 Advanced Features
-- ✅ **Interactive Mode**: Full PTY support with command history
-- ✅ **Connection Retry**: Exponential backoff with configurable attempts
-- ✅ **Signal Handling**: Graceful shutdown and signal blocking
+### Advanced Features
+- **Interactive Mode**: Full PTY support with command history
+- **Connection Retry**: Exponential backoff with configurable attempts
+- **Signal Handling**: Graceful shutdown and signal blocking
+- **Timeout Control**: Configurable connection and read timeouts
+- **Concurrent Connections**: Handle multiple connections simultaneously
+- **Comprehensive Logging**: Structured logging with multiple levels
 - ✅ **Timeout Control**: Configurable connection and read timeouts
 - ✅ **Concurrent Connections**: Handle multiple connections simultaneously
 - ✅ **Comprehensive Logging**: Structured logging with multiple levels
